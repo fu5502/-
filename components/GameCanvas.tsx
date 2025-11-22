@@ -685,7 +685,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     if (state.levelTransitionTimer > 0) {
         state.levelTransitionTimer--;
         state.clouds.forEach(c => c.y += c.speed * 2);
-        return; 
+        // During transition, we still want to render, but skip updates logic that might conflict
+        // However, we MUST NOT return early for Particles or Rendering might look frozen
     }
 
     // --- Background Updates ---
@@ -941,6 +942,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         if (p.pos.y > CANVAS_HEIGHT + 50) p.markedForDeletion = true;
     });
 
+    // --- Particle Updates (Fixes white screen bug) ---
+    state.particles.forEach(p => {
+        p.life -= 0.02; // Decay
+        p.pos.x += p.vel.x;
+        p.pos.y += p.vel.y;
+        if (p.life <= 0) p.markedForDeletion = true;
+    });
+
     // --- Collisions ---
     state.bullets.filter(b => b.owner === 'player').forEach(bullet => {
        state.enemies.forEach(enemy => {
@@ -1031,6 +1040,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.fillStyle = COLORS.STAR;
         ctx.beginPath(); ctx.arc(star.x, star.y, star.size, 0, Math.PI*2); ctx.fill();
     });
+    // Draw clouds BEHIND enemies but after stars
+    state.clouds.forEach(c => {
+         ctx.fillStyle = '#1e3a8a';
+         ctx.globalAlpha = c.alpha;
+         ctx.fillRect(c.x, c.y, c.width, c.height);
+    });
     ctx.globalAlpha = 1.0;
 
     // Entities...
@@ -1069,7 +1084,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     if (Math.floor(player.invulnerableTimer / 4) % 2 === 0) {
         ctx.save(); ctx.translate(player.pos.x, player.pos.y);
         ctx.fillStyle = player.color;
-        ctx.beginPath(); ctx.moveTo(0, -25); ctx.lineTo(15, 20); ctx.lineTo(0, 15); ctx.lineTo(-15, 20); ctx.fill();
+        // Detailed Ship
+        ctx.beginPath(); 
+        ctx.moveTo(0, -25); 
+        ctx.lineTo(8, -10); ctx.lineTo(15, 20); ctx.lineTo(0, 15); ctx.lineTo(-15, 20); ctx.lineTo(-8, -10); 
+        ctx.fill();
+        // Wings
+        ctx.fillStyle = '#94a3b8';
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(25, 15); ctx.lineTo(25, 25); ctx.lineTo(5, 20); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-25, 15); ctx.lineTo(-25, 25); ctx.lineTo(-5, 20); ctx.fill();
+
         // Shield regen effect
         if (state.frame - player.lastHitFrame > REGEN_DELAY_FRAMES && player.hp < player.maxHp) {
             ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2; ctx.globalAlpha = 0.5 + Math.sin(state.frame*0.2)*0.3;
@@ -1081,15 +1105,55 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     state.enemies.forEach(e => {
         ctx.save(); ctx.translate(e.pos.x, e.pos.y);
         ctx.fillStyle = e.color;
-        if (e.type === 'boss') ctx.fillRect(-60, -40, 120, 80);
-        else ctx.fillRect(-e.width/2, -e.height/2, e.width, e.height);
+        ctx.shadowColor = e.color;
+        
+        // Detailed Enemy Shapes
+        if (e.type === 'boss') {
+            ctx.shadowBlur = 10;
+            // Main Body
+            ctx.beginPath();
+            ctx.moveTo(0, -60);
+            ctx.lineTo(40, -20); ctx.lineTo(60, 20); ctx.lineTo(30, 50); ctx.lineTo(-30, 50); ctx.lineTo(-60, 20); ctx.lineTo(-40, -20);
+            ctx.closePath();
+            ctx.fill();
+            // Core
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI*2); ctx.fill();
+        } else if (e.type === 'fighter') {
+            // Delta Wing
+            ctx.beginPath();
+            ctx.moveTo(0, 15); ctx.lineTo(15, -15); ctx.lineTo(0, -5); ctx.lineTo(-15, -15);
+            ctx.closePath();
+            ctx.fill();
+        } else if (e.type === 'interceptor') {
+            // Sharp Arrow
+            ctx.beginPath();
+            ctx.moveTo(0, 20); ctx.lineTo(10, -20); ctx.lineTo(0, -10); ctx.lineTo(-10, -20);
+            ctx.closePath();
+            ctx.fill();
+        } else if (e.type === 'bomber') {
+            // Flying Wing
+            ctx.beginPath();
+            ctx.moveTo(0, 10); ctx.lineTo(25, -10); ctx.lineTo(0, -5); ctx.lineTo(-25, -10);
+            ctx.closePath();
+            ctx.fill();
+        } else if (e.type === 'tank') {
+            // Boxy
+            ctx.fillRect(-20, -20, 40, 40);
+            ctx.fillStyle = '#000'; ctx.fillRect(-5, 0, 10, 25); // Gun
+        }
+        ctx.shadowBlur = 0;
         ctx.restore();
     });
 
     state.particles.forEach(p => {
-        ctx.save(); ctx.globalAlpha = p.life;
-        if (p.id === 'bomb_flash') { ctx.fillStyle = '#fff'; ctx.fillRect(0,0, CANVAS_WIDTH, CANVAS_HEIGHT); }
-        else { ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.pos.x, p.pos.y, p.scale, 0, Math.PI*2); ctx.fill(); }
+        ctx.save(); ctx.globalAlpha = Math.max(0, p.life);
+        if (p.id === 'bomb_flash') { 
+            ctx.fillStyle = '#fff'; 
+            ctx.fillRect(0,0, CANVAS_WIDTH, CANVAS_HEIGHT); 
+        } else { 
+            ctx.fillStyle = p.color; 
+            ctx.beginPath(); ctx.arc(p.pos.x, p.pos.y, p.scale, 0, Math.PI*2); ctx.fill(); 
+        }
         ctx.restore();
     });
     
