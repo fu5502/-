@@ -1,3 +1,6 @@
+
+export const GAME_VERSION = "v1.1.0 (Build 2024.03)";
+
 export const CANVAS_WIDTH = 600;
 export const CANVAS_HEIGHT = 800;
 

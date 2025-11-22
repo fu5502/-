@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GameState, WeaponType, LeaderboardEntry } from '../types';
+import { GAME_VERSION } from '../constants';
 import { Activity, Bomb, Trophy, Skull, RotateCcw, Crosshair, Zap, CircleDashed, ChevronRight, ChevronLeft, Play, Info, X, Keyboard, Loader2, Globe, WifiOff, Shield } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
@@ -268,6 +269,10 @@ const UI: React.FC<UIProps> = ({
               <button onClick={() => setShowLeaderboard(true)} className="w-full bg-gray-800 text-gray-300 py-3 rounded flex justify-center gap-2 items-center"><Trophy size={20} /> 排行榜 RANK</button>
               <button onClick={() => setShowHelp(true)} className="w-full bg-gray-800 text-gray-300 py-3 rounded flex justify-center gap-2 items-center"><Info size={20} /> 说明 HELP</button>
           </div>
+          
+          <div className="absolute bottom-[-30px] left-0 right-0 text-center opacity-50">
+             <span className="text-[10px] font-mono text-gray-500 tracking-widest">{GAME_VERSION}</span>
+          </div>
         </div>
       </div>
     );
@@ -350,7 +355,7 @@ const UI: React.FC<UIProps> = ({
         <div className="flex-1 pb-1">
             <div className="flex items-center gap-2 mb-1 justify-end">
                 <div className="text-xs text-green-400 font-bold">护盾 SHIELD</div>
-                <div className="text-xs text-gray-400 ml-2"> [B / SHIFT]</div>
+                <div className="text-xs text-yellow-500 font-bold animate-pulse ml-2">[ B / SHIFT ]</div>
                 <Activity className="w-4 h-4 text-green-400 ml-auto" />
             </div>
             <div className="h-6 bg-gray-800 rounded-sm overflow-hidden border border-gray-600 relative">
