@@ -896,8 +896,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
        state.enemies.push({
          id: Math.random().toString(),
          pos: { x, y: -50 },
-         vel: { x: 0, y: velY },
-         width, height: width, hp, maxHp: hp, type, color, scoreValue: scoreVal, shootTimer: Math.random()*60, patternOffset: Math.random()*100, markedForDeletion: false,
+         vel: { x: 0, y: 1 },
+         width, height: width, hp, maxHp: hp,
+         type: type, 
+         color, scoreValue: scoreVal, shootTimer: Math.random()*60, patternOffset: Math.random()*100, markedForDeletion: false,
          attackPattern
        });
     }
@@ -955,16 +957,34 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           playSound('explode');
           state.score += enemy.scoreValue;
           createExplosion(state, enemy.pos.x, enemy.pos.y, 15, enemy.color);
-          spawnPowerUp(state, enemy.pos.x, enemy.pos.y);
-          state.cameraShake = 2;
+          
+          // Boss Loot Logic
           if (enemy.type === 'boss') {
-              state.bossActive = false;
-              state.level++;
-              state.nextBossScoreThreshold = state.score + BOSS_SCORE_THRESHOLD * state.level;
-              state.levelTransitionTimer = 180; 
-              state.bullets = state.bullets.filter((b: Bullet) => b.owner === 'player');
-              player.hp = Math.min(player.hp + 50, player.maxHp);
+             // Drop specific weapon based on level cycle
+             const lootType = state.level % 3 === 1 ? 'P_RED' : state.level % 3 === 2 ? 'P_BLUE' : 'P_PURPLE';
+             state.powerUps.push({
+                id: Math.random().toString(), pos: { x: enemy.pos.x, y: enemy.pos.y }, vel: { x: 0, y: 2 },
+                width: 24, height: 24, type: lootType, color: '#fff', markedForDeletion: false
+             });
+             // Extra gold
+             for(let k=0; k<5; k++) {
+                state.powerUps.push({
+                    id: Math.random().toString(), pos: { x: enemy.pos.x + (Math.random()-0.5)*40, y: enemy.pos.y + (Math.random()-0.5)*40 }, vel: { x: (Math.random()-0.5)*2, y: 2 + Math.random() },
+                    width: 24, height: 24, type: 'SCORE_GOLD', color: '#fff', markedForDeletion: false
+                 });
+             }
+
+             state.bossActive = false;
+             state.level++;
+             state.nextBossScoreThreshold = state.score + BOSS_SCORE_THRESHOLD * state.level;
+             state.levelTransitionTimer = 180; 
+             state.bullets = state.bullets.filter((b: Bullet) => b.owner === 'player');
+             player.hp = Math.min(player.hp + 50, player.maxHp);
+          } else {
+             spawnPowerUp(state, enemy.pos.x, enemy.pos.y);
           }
+
+          state.cameraShake = 2;
           state.enemies.splice(i, 1);
           continue;
       }
@@ -1025,7 +1045,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             } else {
                 playSound('powerup');
                 state.score += 100;
-                if (p.type === 'HEALTH') player.hp = Math.min(player.hp + 30, player.maxHp);
+                if (p.type === 'HEALTH') player.hp = Math.min(player.hp + 15, player.maxHp); // Nerfed from 30 to 15
                 else if (p.type === 'BOMB') player.bombs++;
                 else if (p.type === 'P_UPGRADE') player.weaponLevel = Math.min(player.weaponLevel + 1, MAX_WEAPON_LEVEL);
                 else {
@@ -1082,11 +1102,23 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                  let isCrit = false;
                  if (enemy.type === 'boss') {
                       const distToCenter = Math.hypot(bullet.pos.x - enemy.pos.x, bullet.pos.y - enemy.pos.y);
-                      if (distToCenter < 20) { damage *= 1.5; isCrit = true; }
+                      // Weak Point Logic (Center Core)
+                      if (distToCenter < 25) { 
+                          damage *= 2.5; // Critical Hit Multiplier
+                          isCrit = true; 
+                          // Critical Hit Visuals
+                          state.particles.push({
+                                id: 'crit_'+Math.random(),
+                                pos: { x: bullet.pos.x, y: bullet.pos.y },
+                                vel: { x: 0, y: 0 },
+                                life: 0.15, maxLife: 0.15, scale: 30, color: '#fff', 
+                                markedForDeletion: false, type: 'particle', width: 0, height: 0
+                          });
+                      }
                  }
                  enemy.hp -= damage;
                  if (bullet.behavior !== 'beam' && bullet.behavior !== 'mine') bullet.markedForDeletion = true; 
-                 createExplosion(state, bullet.pos.x, bullet.pos.y, 1, isCrit ? '#fff' : bullet.color);
+                 createExplosion(state, bullet.pos.x, bullet.pos.y, 1, isCrit ? '#fbbf24' : bullet.color);
            }
         });
     });
@@ -1307,7 +1339,24 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             ctx.lineTo(40, -20); ctx.lineTo(60, 20); ctx.lineTo(30, 50); ctx.lineTo(-30, 50); ctx.lineTo(-60, 20); ctx.lineTo(-40, -20);
             ctx.closePath();
             ctx.fill();
-            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI*2); ctx.fill();
+            
+            // Render Weak Point (Pulsing Core)
+            const pulse = Math.sin(state.frame * 0.2) * 0.5 + 0.5; 
+            // Outer ring target
+            ctx.strokeStyle = `rgba(255, 50, 50, ${0.5 + pulse * 0.5})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.arc(0, 0, 20 + pulse * 5, 0, Math.PI*2); ctx.stroke();
+            
+            // Inner Core
+            ctx.fillStyle = `rgba(255, ${200 + pulse * 55}, ${200 + pulse * 55}, 1)`;
+            ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI*2); ctx.fill();
+            
+            // Core glow
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#f87171';
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill();
+
         } else if (e.type === 'fighter') {
             ctx.beginPath();
             ctx.moveTo(0, 15); ctx.lineTo(15, -15); ctx.lineTo(0, -5); ctx.lineTo(-15, -15);
