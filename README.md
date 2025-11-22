@@ -93,13 +93,20 @@
    npm install
    ```
 
-3. **启动开发服务器**
+3. **配置环境变量 (可选)**
+   为了启用在线排行榜，请在根目录创建 `.env` 文件并填入 Supabase 密钥（或者直接使用默认的本地排行榜模式）：
+   ```env
+   VITE_SUPABASE_URL=your_project_url
+   VITE_SUPABASE_ANON_KEY=your_anon_key
+   ```
+
+4. **启动开发服务器**
    ```bash
    npm run dev
    ```
    打开浏览器访问 `http://localhost:5173`。
 
-4. **构建生产版本**
+5. **构建生产版本**
    ```bash
    npm run build
    ```
