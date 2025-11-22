@@ -1,5 +1,5 @@
 
-export const GAME_VERSION = "v1.1.1 (Build 2025.11.23)";
+export const GAME_VERSION = "v1.1.2 (Build 2025.11.24)";
 
 export const CANVAS_WIDTH = 600;
 export const CANVAS_HEIGHT = 800;
@@ -14,7 +14,7 @@ export const BULLET_SPEED_ENEMY = 4;
 export const ENEMY_SPAWN_RATE_INITIAL = 60; // Frames
 export const BOSS_SCORE_THRESHOLD = 2000;
 
-export const REGEN_DELAY_FRAMES = 600; // 10 seconds at 60fps
+export const REGEN_DELAY_FRAMES = 480; // 8 seconds at 60fps (previously 600)
 export const SPAWN_INVULNERABILITY_FRAMES = 240; // 4 seconds
 export const MAX_WEAPON_LEVEL = 8;
 
