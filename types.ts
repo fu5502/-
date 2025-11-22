@@ -1,0 +1,70 @@
+export enum GameState {
+  MENU,
+  PLAYING,
+  GAME_OVER,
+  VICTORY
+}
+
+export enum WeaponType {
+  VULCAN, // Spread red
+  LASER,  // Focused blue
+  PLASMA  // Homing purple
+}
+
+export interface Vector2 {
+  x: number;
+  y: number;
+}
+
+export interface Entity {
+  id: string;
+  pos: Vector2;
+  vel: Vector2;
+  width: number;
+  height: number;
+  color: string;
+  markedForDeletion: boolean;
+}
+
+export interface Player extends Entity {
+  hp: number;
+  maxHp: number;
+  speed: number;
+  weaponType: WeaponType;
+  weaponLevel: number;
+  bombs: number;
+  invulnerableTimer: number;
+}
+
+export interface Enemy extends Entity {
+  hp: number;
+  maxHp: number;
+  type: 'fighter' | 'tank' | 'boss' | 'interceptor' | 'bomber';
+  scoreValue: number;
+  shootTimer: number;
+  patternOffset: number;
+}
+
+export interface Bullet extends Entity {
+  owner: 'player' | 'enemy';
+  damage: number;
+  angle?: number;
+  behavior?: 'normal' | 'homing' | 'beam';
+}
+
+export interface Particle extends Entity {
+  life: number;
+  maxLife: number;
+  scale: number;
+}
+
+export interface PowerUp extends Entity {
+  type: 'P_RED' | 'P_BLUE' | 'P_PURPLE' | 'P_UPGRADE' | 'BOMB' | 'HEALTH';
+}
+
+export interface GameContextData {
+  score: number;
+  highScore: number;
+  gameState: GameState;
+  setGameState: (state: GameState) => void;
+}
