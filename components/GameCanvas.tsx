@@ -59,9 +59,7 @@ class MusicSequencer {
   }
 
   setLevel(level: number) {
-      // Logic to switch style based on level
       this.currentLevel = level;
-      // Adjust tempo slightly per stage for intensity
       this.tempo = 135 + Math.min(20, (level - 1) * 2); 
   }
 
@@ -81,14 +79,13 @@ class MusicSequencer {
       const modGain = this.ctx.createGain();
       const gain = this.ctx.createGain();
 
-      // FM Synthesis setup
       osc.type = 'square';
       mod.type = 'sine';
       
       osc.frequency.setValueAtTime(freq, time);
-      mod.frequency.setValueAtTime(freq * 2, time); // 2:1 ratio for bright FM
+      mod.frequency.setValueAtTime(freq * 2, time); 
       
-      modGain.gain.setValueAtTime(freq * 0.5, time); // Modulation index
+      modGain.gain.setValueAtTime(freq * 0.5, time); 
       modGain.gain.exponentialRampToValueAtTime(0.01, time + decay);
 
       gain.gain.setValueAtTime(0.1, time);
@@ -111,7 +108,6 @@ class MusicSequencer {
       const gain = this.ctx.createGain();
       osc.type = 'sawtooth';
       
-      // Filter for that synth bass pluck
       const filter = this.ctx.createBiquadFilter();
       filter.type = 'lowpass';
       filter.frequency.setValueAtTime(800, time);
@@ -143,7 +139,6 @@ class MusicSequencer {
           osc.start(time);
           osc.stop(time + 0.5);
       } else if (type === 'snare') {
-          // Noise burst approximation
           const noiseBuffer = this.ctx.createBuffer(1, this.ctx.sampleRate * 0.1, this.ctx.sampleRate);
           const output = noiseBuffer.getChannelData(0);
           for (let i = 0; i < noiseBuffer.length; i++) {
@@ -161,12 +156,10 @@ class MusicSequencer {
           gain.gain.exponentialRampToValueAtTime(0.01, time + 0.1);
           noise.start(time);
       } else if (type === 'hat') {
-          // High metal sound
-          osc.type = 'square'; // Metal-ish
-          // Combine multiple oscs in a real engine, simplified here
           const noiseFilter = this.ctx.createBiquadFilter();
           noiseFilter.type = 'highpass';
           noiseFilter.frequency.value = 5000;
+          osc.type = 'square';
           osc.frequency.setValueAtTime(8000, time);
           osc.connect(noiseFilter);
           noiseFilter.connect(gain);
@@ -179,72 +172,44 @@ class MusicSequencer {
   }
 
   scheduleNote(beatNumber: number, time: number) {
-    const musicStage = (this.currentLevel - 1) % 3; // 3 distinct musical themes cycling
-
-    // --- DRUMS (Global-ish) ---
-    // Kick: 0, 4, 8, 12 (Four on floor)
-    if (beatNumber % 4 === 0) this.playDrum(time, 'kick');
-    // Snare: 4, 12
-    if (beatNumber % 8 === 4) this.playDrum(time, 'snare');
-    // Hats: Offbeats
-    if (beatNumber % 2 !== 0) this.playDrum(time, 'hat');
-    // 16th hats for intensity in later stages
-    if (musicStage > 0 && beatNumber % 2 === 0) {
-         const g = this.ctx.createGain();
-         g.connect(this.ctx.destination);
-         g.gain.value = 0.05; // quieter ghost notes
-         // simpler hat logic
-    }
-
-    // --- BASS & LEAD SEQUENCES ---
-    
-    // Scale Helpers (Root C2 = 65.41)
+    const musicStage = (this.currentLevel - 1) % 3; 
     const root = 65.41; 
-    // Pentatonic scale degrees relative to root: 1, b3, 4, 5, b7
     const scale = [1, 1.2, 1.33, 1.5, 1.78, 2]; 
 
-    // THEME 1: HEROIC (Stage 1, 4, 7) - Driving, Uplifting
-    if (musicStage === 0) {
-        // Bass: Driving 8ths on Root
+    // Drums
+    if (beatNumber % 4 === 0) this.playDrum(time, 'kick');
+    if (beatNumber % 8 === 4) this.playDrum(time, 'snare');
+    if (beatNumber % 2 !== 0) this.playDrum(time, 'hat');
+
+    // Themes
+    if (musicStage === 0) { // Heroic
         if (beatNumber % 2 === 0) {
             let note = root;
-            if (beatNumber >= 8 && beatNumber < 12) note = root * 1.33; // IV chord
-            if (beatNumber >= 12) note = root * 1.5; // V chord
+            if (beatNumber >= 8 && beatNumber < 12) note = root * 1.33;
+            if (beatNumber >= 12) note = root * 1.5;
             this.playBass(time, note);
         }
-        // Lead: Arpeggio melody
         if ([0, 3, 6, 8, 10, 12, 14].includes(beatNumber)) {
-             let note = root * 4; // Higher octave
+             let note = root * 4; 
              if (beatNumber < 8) note *= scale[beatNumber % 3]; 
              else note *= scale[(beatNumber + 1) % 3];
              this.playLead(time, note, 0.15);
         }
-    }
-
-    // THEME 2: INDUSTRIAL (Stage 2, 5, 8) - Minor, Darker, Syncopated
-    else if (musicStage === 1) {
-        // Bass: Syncopated
+    } else if (musicStage === 1) { // Industrial
         if ([0, 3, 6, 8, 10, 11, 14].includes(beatNumber)) {
-             let note = root * 0.75; // Lower
-             // Chromatic feel
-             if (beatNumber > 8) note = root * 0.75 * 1.06; // Minor 2nd up
+             let note = root * 0.75; 
+             if (beatNumber > 8) note = root * 0.75 * 1.06; 
              this.playBass(time, note);
         }
-        // Lead: Stabs
         if (beatNumber === 0 || beatNumber === 6 || beatNumber === 12) {
-             this.playLead(time, root * 4 * 1.2, 0.3); // Minor 3rd stab
+             this.playLead(time, root * 4 * 1.2, 0.3);
         }
-    }
-
-    // THEME 3: HYPER TRANCE (Stage 3, 6, 9) - Fast, Running
-    else {
-        // Bass: Rolling 16ths
+    } else { // Trance
         const bRoot = root * 1.0; 
-        const bassSeq = [1, 1, 1.5, 1, 1, 1, 1.2, 1.2]; // I - V - bIII
+        const bassSeq = [1, 1, 1.5, 1, 1, 1, 1.2, 1.2]; 
         const idx = Math.floor(beatNumber / 2) % 8;
         this.playBass(time, bRoot * bassSeq[idx]);
 
-        // Lead: High Arpeggios
         const lRoot = root * 8;
         const arp = [1, 1.2, 1.5, 2];
         const note = lRoot * arp[beatNumber % 4];
@@ -362,7 +327,7 @@ const playSound = (type: 'shoot' | 'explode' | 'powerup' | 'laser' | 'bomb' | 'c
         break;
     }
   } catch (e) {
-    console.error("Audio error", e);
+    // Silently fail if audio not available
   }
 };
 
@@ -399,9 +364,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     enemies: [] as Enemy[],
     particles: [] as Particle[],
     powerUps: [] as PowerUp[],
+    bombSquad: [] as { x: number, y: number, speed: number }[], // Visual Bomb Effect
     stars: [] as { x: number; y: number; size: number; speed: number; brightness: number }[],
     clouds: [] as { x: number; y: number; width: number; height: number; speed: number; alpha: number }[],
-    keys: new Set<string>(), // Tracks key codes (e.g. 'KeyW', 'ShiftLeft')
+    keys: new Set<string>(), 
     frame: 0,
     score: 0,
     bossActive: false,
@@ -414,11 +380,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   // --- Audio Initialization ---
   useEffect(() => {
      if (!bgmSequencer) {
-         bgmSequencer = new MusicSequencer();
+         try {
+           bgmSequencer = new MusicSequencer();
+         } catch (e) { console.log("Audio init deferred"); }
      }
-     if (gameState === GameState.PLAYING) {
+     if (gameState === GameState.PLAYING && bgmSequencer) {
          bgmSequencer.start();
-     } else {
+     } else if (bgmSequencer) {
          bgmSequencer.stop();
      }
   }, [gameState]);
@@ -430,11 +398,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
        state.player.bombs--;
        state.cameraShake = 25;
        playSound('bomb');
-       state.bullets = state.bullets.filter(b => b.owner === 'player');
-       state.enemies.forEach(e => {
-         e.hp -= 200;
-         createExplosion(state, e.pos.x, e.pos.y, 30, COLORS.BOMB);
-       });
+       
+       // Visual: Full Screen Flash
        state.particles.push({
          id: 'bomb_flash',
          pos: { x: CANVAS_WIDTH/2, y: CANVAS_HEIGHT/2 },
@@ -446,26 +411,36 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
          markedForDeletion: false,
          width: 0, height: 0
        });
+
+       // Visual: Bomb Squad (7 planes)
+       const squadCount = 7;
+       const spacing = CANVAS_WIDTH / (squadCount + 1);
+       for (let i = 0; i < squadCount; i++) {
+           state.bombSquad.push({
+               x: spacing * (i + 1),
+               y: CANVAS_HEIGHT + 100 + (Math.abs(i - 3) * 20), // V formation
+               speed: 15
+           });
+       }
+
+       // Logic: Damage Enemies & Clear Bullets
+       state.bullets = state.bullets.filter(b => b.owner === 'player'); // Keep player bullets
+       state.enemies.forEach(e => {
+         e.hp -= 200;
+         createExplosion(state, e.pos.x, e.pos.y, 30, COLORS.BOMB);
+       });
      }
   }, []);
 
   useEffect(() => {
-    // We use 'code' instead of 'key' to avoid Shift modifying Arrow keys (e.g. Shift+ArrowUp != ArrowUp)
     const handleKeyDown = (e: KeyboardEvent) => {
-        // Prevent default browser scrolling for game keys
         if (KEYS.UP.includes(e.code) || KEYS.DOWN.includes(e.code) || 
             KEYS.LEFT.includes(e.code) || KEYS.RIGHT.includes(e.code) || 
             e.code === 'Space') {
-             // e.preventDefault(); // Optional: might block page scrolling
+             // e.preventDefault(); 
         }
         
         stateRef.current.keys.add(e.code);
-        
-        // Bomb Trigger (Debounced by check)
-        if (KEYS.BOMB.includes(e.code)) {
-            // Simple debounce check or trigger logic could go here
-            // But we'll handle bomb triggering via a flag or just execute once per press
-        }
         
         if (window.gameAudioContext?.state === 'suspended') {
             window.gameAudioContext.resume();
@@ -473,13 +448,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
     const handleKeyUp = (e: KeyboardEvent) => {
         stateRef.current.keys.delete(e.code);
-        // Handle bomb separately on key down usually, but let's check input in update
-        if (KEYS.BOMB.includes(e.code)) {
-             // triggerBomb(); // Better to trigger on down
-        }
     };
     
-    // Separate listener for immediate actions
     const handleAction = (e: KeyboardEvent) => {
         if (KEYS.BOMB.includes(e.code) && gameState === GameState.PLAYING) {
             triggerBomb();
@@ -542,6 +512,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     if (gameState === GameState.PLAYING) {
        state.player.pos.x += dx * 1.5;
        state.player.pos.y += dy * 1.5;
+       
+       // Clamp touch movement
+       const halfW = state.player.width / 2;
+       const halfH = state.player.height / 2;
+       state.player.pos.x = Math.max(halfW, Math.min(CANVAS_WIDTH - halfW, state.player.pos.x));
+       state.player.pos.y = Math.max(halfH, Math.min(CANVAS_HEIGHT - halfH, state.player.pos.y));
     }
 
     touchRef.current.startX = e.touches[0].clientX;
@@ -555,7 +531,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   // --- Game Loop Helpers ---
 
   const createExplosion = (state: any, x: number, y: number, count: number, color: string) => {
-    // Initial Flash Shockwave
     if (count > 5) {
        state.particles.push({
            id: 'shockwave_'+Math.random(),
@@ -563,13 +538,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
            vel: {x:0, y:0},
            life: 1.0,
            maxLife: 1.0,
-           scale: 1, // will grow
+           scale: 1, 
            color: COLORS.SHOCKWAVE,
            markedForDeletion: false,
-           type: 'shockwave'
+           type: 'shockwave',
+           width: 0, height: 0
        });
-       
-       // Debris
        createDebris(state, x, y, count, color);
     }
 
@@ -585,7 +559,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         scale: Math.random() * 4 + 2,
         color: color,
         markedForDeletion: false,
-        type: 'particle'
+        type: 'particle',
+        width: 0, height: 0
       });
     }
   };
@@ -600,38 +575,33 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             vel: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
             life: Math.random() * 1.0 + 0.5,
             maxLife: 1.5,
-            scale: Math.random() * 5 + 3, // Size of debris
+            scale: Math.random() * 5 + 3, 
             color: color,
             markedForDeletion: false,
             type: 'particle',
-            subtype: 'debris', // Identify as rectangular debris
+            subtype: 'debris',
             rotation: Math.random() * Math.PI,
-            rotationSpeed: (Math.random() - 0.5) * 0.5
+            rotationSpeed: (Math.random() - 0.5) * 0.5,
+            width: 0, height: 0
           });
       }
   };
 
   const spawnPowerUp = (state: any, x: number, y: number) => {
-    if (Math.random() > 0.20) return; // 20% global drop rate
+    if (Math.random() > 0.20) return; 
     const r = Math.random();
     let type: PowerUp['type'] = 'SCORE_SILVER';
     
-    // REBALANCED DROP RATES
-    // Common (Score Items) - 45% chance within drops
     if (r < 0.25) type = 'SCORE_SILVER';
     else if (r < 0.45) type = 'SCORE_GOLD';
-    
-    // Uncommon (Weapon Switch) - 30% chance within drops
     else if (r < 0.55) type = 'P_RED';
     else if (r < 0.65) type = 'P_BLUE';
     else if (r < 0.75) type = 'P_PURPLE';
-    
-    // Rare (Upgrade & Survival) - 25% chance within drops
-    else if (r < 0.82) type = 'P_UPGRADE'; // ~7% (Rare)
-    else if (r < 0.85) type = 'BOMB';      // ~3%
-    else if (r < 0.87) type = 'HEALTH';    // ~2%
-    else if (r < 0.89) type = 'INVINCIBILITY'; // ~2%
-    else return; // Drop nothing
+    else if (r < 0.82) type = 'P_UPGRADE'; 
+    else if (r < 0.85) type = 'BOMB';      
+    else if (r < 0.87) type = 'HEALTH';    
+    else if (r < 0.89) type = 'INVINCIBILITY'; 
+    else return;
 
     state.powerUps.push({
       id: Math.random().toString(),
@@ -694,9 +664,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     state.player.hp = 100;
     state.player.bombs = 2;
     state.player.pos = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 100 };
-    state.player.weaponLevel = 1; // Reset Level
+    state.player.weaponLevel = 1; 
     state.player.weaponType = startingWeapon;
-    // STARTING INVULNERABILITY
     state.player.invulnerableTimer = SPAWN_INVULNERABILITY_FRAMES; 
     state.player.lastHitFrame = 0;
 
@@ -709,13 +678,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     state.enemies = [];
     state.particles = [];
     state.powerUps = [];
+    state.bombSquad = [];
     state.frame = 0;
     state.bossActive = false;
     state.level = 1;
     state.levelTransitionTimer = 0;
     state.nextBossScoreThreshold = BOSS_SCORE_THRESHOLD;
     
-    // Reset music level
     if (bgmSequencer) bgmSequencer.setLevel(1);
 
     setScore(0);
@@ -737,43 +706,32 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     state.frame++;
     
-    // Sync music level
     if (bgmSequencer && bgmSequencer.currentLevel !== state.level) {
         bgmSequencer.setLevel(state.level);
     }
 
-    // --- Passive Health Regeneration ---
-    // If not hit for 10 seconds (REGEN_DELAY_FRAMES)
+    // Regen Logic
     if (state.frame - player.lastHitFrame > REGEN_DELAY_FRAMES && player.hp < player.maxHp && player.hp > 0) {
-        if (state.frame % 45 === 0) { // Very Slow tick (approx 0.75s per 1HP)
+        if (state.frame % 45 === 0) { 
             player.hp = Math.min(player.maxHp, player.hp + 1);
         }
     }
 
-    // --- Level Transition ---
+    // Level Transition
     if (state.levelTransitionTimer > 0) {
         state.levelTransitionTimer--;
         state.clouds.forEach(c => c.y += c.speed * 2);
-        // During transition, we still want to render, but skip updates logic that might conflict
-        // However, we MUST NOT return early for Particles or Rendering might look frozen
     }
 
-    // --- Background Updates ---
-    // Parallax Stars
+    // Background
     state.stars.forEach((star, i) => {
-        // 3 Layers of speed based on size/brightness
-        let speedMult = 1;
-        if (i < 40) speedMult = 0.5; // Distant
-        else if (i < 80) speedMult = 1.0; // Mid
-        else speedMult = 2.0; // Close
-        
+        let speedMult = i < 40 ? 0.5 : i < 80 ? 1.0 : 2.0;
         star.y += star.speed * speedMult;
         if (star.y > CANVAS_HEIGHT) {
             star.y = 0;
             star.x = Math.random() * CANVAS_WIDTH;
         }
     });
-    
     state.clouds.forEach(c => {
         c.y += c.speed;
         if (c.y > CANVAS_HEIGHT + c.height) {
@@ -782,10 +740,26 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
     });
 
-    // --- Player Movement (Using Codes) ---
+    // Bomb Squad Logic
+    for (let i = state.bombSquad.length - 1; i >= 0; i--) {
+        const plane = state.bombSquad[i];
+        plane.y -= plane.speed;
+        // Trail particles
+        if (state.frame % 2 === 0) {
+            state.particles.push({
+                id: Math.random().toString(),
+                pos: { x: plane.x, y: plane.y + 20 },
+                vel: { x: 0, y: Math.random()*2 },
+                life: 0.5, maxLife: 0.5, scale: 4, color: '#fb923c', markedForDeletion: false, type: 'particle',
+                width: 0, height: 0
+            });
+        }
+        if (plane.y < -100) state.bombSquad.splice(i, 1);
+    }
+
+    // Player Movement
     let dx = 0;
     let dy = 0;
-    // Check multiple keys for WASD/Arrows
     if (state.keys.has('ArrowLeft') || state.keys.has('KeyA')) dx -= player.speed;
     if (state.keys.has('ArrowRight') || state.keys.has('KeyD')) dx += player.speed;
     if (state.keys.has('ArrowUp') || state.keys.has('KeyW')) dy -= player.speed;
@@ -799,24 +773,17 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     player.pos.x = Math.max(halfW, Math.min(CANVAS_WIDTH - halfW, player.pos.x));
     player.pos.y = Math.max(halfH, Math.min(CANVAS_HEIGHT - halfH, player.pos.y));
 
-    // --- Player Shooting ---
+    // Shooting
     if (state.frame % 4 === 0) { 
       const pX = player.pos.x;
       const pY = player.pos.y - 20;
       
-      // VULCAN (Spread)
       if (player.weaponType === WeaponType.VULCAN) {
         playSound('shoot');
-        // Gatling Mode at high levels (faster center stream)
         const isGatling = player.weaponLevel >= 8 && state.frame % 2 === 0;
-
         spawnBullet(state, 'player', pX - 8, pY, -Math.PI/2, BULLET_SPEED_PLAYER);
         spawnBullet(state, 'player', pX + 8, pY, -Math.PI/2, BULLET_SPEED_PLAYER);
-        
-        if (isGatling) {
-             spawnBullet(state, 'player', pX, pY - 10, -Math.PI/2, BULLET_SPEED_PLAYER * 1.2);
-        }
-        
+        if (isGatling) spawnBullet(state, 'player', pX, pY - 10, -Math.PI/2, BULLET_SPEED_PLAYER * 1.2);
         if (player.weaponLevel >= 2) {
            spawnBullet(state, 'player', pX - 18, pY + 5, -Math.PI/2 - 0.1, BULLET_SPEED_PLAYER);
            spawnBullet(state, 'player', pX + 18, pY + 5, -Math.PI/2 + 0.1, BULLET_SPEED_PLAYER);
@@ -825,34 +792,21 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
            spawnBullet(state, 'player', pX - 28, pY + 10, -Math.PI/2 - 0.25, BULLET_SPEED_PLAYER);
            spawnBullet(state, 'player', pX + 28, pY + 10, -Math.PI/2 + 0.25, BULLET_SPEED_PLAYER);
         }
-        if (player.weaponLevel >= 4) { // Homing
-           if (state.frame % 8 === 0) {
+        if (player.weaponLevel >= 4 && state.frame % 8 === 0) {
              spawnBullet(state, 'player', pX - 40, pY + 20, -Math.PI/2 - 0.8, BULLET_SPEED_PLAYER * 0.8, 'homing', 0.5);
              spawnBullet(state, 'player', pX + 40, pY + 20, -Math.PI/2 + 0.8, BULLET_SPEED_PLAYER * 0.8, 'homing', 0.5);
-           }
         }
-        if (player.weaponLevel >= 5) { // Rear Shot
-            if (state.frame % 12 === 0) {
-                 spawnBullet(state, 'player', pX, pY + 40, Math.PI/2, BULLET_SPEED_PLAYER * 0.8, 'normal', 0.8);
-            }
+        if (player.weaponLevel >= 5 && state.frame % 12 === 0) {
+             spawnBullet(state, 'player', pX, pY + 40, Math.PI/2, BULLET_SPEED_PLAYER * 0.8, 'normal', 0.8);
         }
-        if (player.weaponLevel >= 6) { // 8-Way Burst
-            if (state.frame % 20 === 0) {
-                 for(let i=0; i<8; i++) {
-                     spawnBullet(state, 'player', pX, pY, Math.PI*2/8 * i, BULLET_SPEED_PLAYER * 0.7, 'normal', 0.4);
-                 }
-            }
+        if (player.weaponLevel >= 6 && state.frame % 20 === 0) {
+             for(let i=0; i<8; i++) spawnBullet(state, 'player', pX, pY, Math.PI*2/8 * i, BULLET_SPEED_PLAYER * 0.7, 'normal', 0.4);
         }
-
-      // LASER (Beam)
       } else if (player.weaponType === WeaponType.LASER) {
         playSound('laser');
         const speed = BULLET_SPEED_PLAYER * 2;
-        // Hyper Beam at Lv8
         const beamScale = player.weaponLevel >= 8 ? 2.5 : 1.0; 
-        
         spawnBullet(state, 'player', pX, pY - 10, -Math.PI/2, speed, 'beam', 1.0 * beamScale);
-        
         if (player.weaponLevel >= 2) {
             spawnBullet(state, 'player', pX - 14, pY + 10, -Math.PI/2, speed, 'beam', 0.7);
             spawnBullet(state, 'player', pX + 14, pY + 10, -Math.PI/2, speed, 'beam', 0.7);
@@ -861,51 +815,39 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             spawnBullet(state, 'player', pX - 20, pY + 15, -Math.PI/2 - 0.15, speed, 'beam', 0.4);
             spawnBullet(state, 'player', pX + 20, pY + 15, -Math.PI/2 + 0.15, speed, 'beam', 0.4);
         }
-        if (player.weaponLevel >= 5) { // Diagonal Rear Lasers
-            if (state.frame % 6 === 0) {
-                spawnBullet(state, 'player', pX - 10, pY + 20, -Math.PI/2 - 2.5, speed, 'beam', 0.5);
-                spawnBullet(state, 'player', pX + 10, pY + 20, -Math.PI/2 + 2.5, speed, 'beam', 0.5);
-            }
+        if (player.weaponLevel >= 5 && state.frame % 6 === 0) {
+            spawnBullet(state, 'player', pX - 10, pY + 20, -Math.PI/2 - 2.5, speed, 'beam', 0.5);
+            spawnBullet(state, 'player', pX + 10, pY + 20, -Math.PI/2 + 2.5, speed, 'beam', 0.5);
         }
-        if (player.weaponLevel >= 7) { // Side Cannons
+        if (player.weaponLevel >= 7) { 
             spawnBullet(state, 'player', pX - 45, pY, -Math.PI/2, speed, 'beam', 0.6);
             spawnBullet(state, 'player', pX + 45, pY, -Math.PI/2, speed, 'beam', 0.6);
         }
       }
     }
 
-    // PLASMA (Homing) - Slower fire rate
     if (player.weaponType === WeaponType.PLASMA && state.frame % 8 === 0) {
        const pX = player.pos.x;
        const pY = player.pos.y - 20;
        playSound('shoot');
        const speed = BULLET_SPEED_PLAYER * 1.1;
-       
        spawnBullet(state, 'player', pX - 10, pY, -Math.PI/2 - 0.2, speed, 'homing');
        spawnBullet(state, 'player', pX + 10, pY, -Math.PI/2 + 0.2, speed, 'homing');
-       
        if (player.weaponLevel >= 2) {
            spawnBullet(state, 'player', pX - 25, pY + 10, -Math.PI/2 - 0.6, speed, 'homing');
            spawnBullet(state, 'player', pX + 25, pY + 10, -Math.PI/2 + 0.6, speed, 'homing');
        }
-       if (player.weaponLevel >= 3) { // Penetrator
-           spawnBullet(state, 'player', pX, pY, -Math.PI/2, speed * 1.5, 'normal', 1.2);
+       if (player.weaponLevel >= 3) spawnBullet(state, 'player', pX, pY, -Math.PI/2, speed * 1.5, 'normal', 1.2);
+       if (player.weaponLevel >= 5 && state.frame % 32 === 0) {
+           spawnBullet(state, 'player', pX - 60, pY, -Math.PI/2, speed * 0.5, 'mine', 1.5);
+           spawnBullet(state, 'player', pX + 60, pY, -Math.PI/2, speed * 0.5, 'mine', 1.5);
        }
-       if (player.weaponLevel >= 5) { // Mines (Homing from sides)
-           if (state.frame % 32 === 0) {
-               // Spawn stationary mines that accelerate later? Or just slow homing
-               spawnBullet(state, 'player', pX - 60, pY, -Math.PI/2, speed * 0.5, 'mine', 1.5);
-               spawnBullet(state, 'player', pX + 60, pY, -Math.PI/2, speed * 0.5, 'mine', 1.5);
-           }
-       }
-       if (player.weaponLevel >= 8) { // Black Hole (Massive Slow Shot)
-           if (state.frame % 64 === 0) {
-               spawnBullet(state, 'player', pX, pY - 30, -Math.PI/2, speed * 0.4, 'homing', 3.0); 
-           }
+       if (player.weaponLevel >= 8 && state.frame % 64 === 0) {
+           spawnBullet(state, 'player', pX, pY - 30, -Math.PI/2, speed * 0.4, 'homing', 3.0); 
        }
     }
 
-    // --- Enemy Spawning ---
+    // Enemy Spawning
     const spawnRate = Math.max(15, 50 - (state.level * 5));
     if (!state.bossActive && state.frame % spawnRate === 0) {
        const x = Math.random() * (CANVAS_WIDTH - 60) + 30;
@@ -926,7 +868,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
            type = 'interceptor'; hp = 40 * hpMult; scoreVal = 150; width = 32; color = COLORS.ENEMY_INTERCEPTOR; velY = 4.5;
        }
        
-       // Init Attack Pattern
        let attackPattern: Enemy['attackPattern'] = 'straight';
        if (type === 'interceptor') attackPattern = 'aimed';
        if (type === 'bomber') attackPattern = 'spread';
@@ -952,8 +893,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         });
     }
 
-    // --- Update Enemies ---
-    state.enemies.forEach(enemy => {
+    // Update Enemies (Optimized: Reverse Loop)
+    for (let i = state.enemies.length - 1; i >= 0; i--) {
+      const enemy = state.enemies[i];
       if (enemy.type === 'boss') {
           if (enemy.pos.y < 150) enemy.pos.y += enemy.vel.y;
           else {
@@ -961,22 +903,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
               enemy.pos.y += Math.cos(state.frame / 40) * 0.5;
           }
           const rateMult = Math.max(0.5, 1.0 - (state.level * 0.1));
-          
-          // Spiral Pattern / Frenzy
           const isFrenzy = enemy.hp < enemy.maxHp * 0.3;
           const fireRate = isFrenzy ? 20 : 40;
-
           if (state.frame % Math.floor(fireRate * rateMult) === 0) {
               const count = isFrenzy ? 24 : 16;
-              for(let i=0; i<count; i++) {
-                  spawnBullet(state, 'enemy', enemy.pos.x, enemy.pos.y, (Math.PI * 2 / count) * i + state.frame/30, 5);
+              for(let j=0; j<count; j++) {
+                  spawnBullet(state, 'enemy', enemy.pos.x, enemy.pos.y, (Math.PI * 2 / count) * j + state.frame/30, 5);
               }
               playSound('shoot');
           }
       } else {
           enemy.pos.y += enemy.vel.y;
           enemy.shootTimer++;
-          
           if (enemy.attackPattern === 'aimed' && enemy.shootTimer > 60) {
                const angle = Math.atan2(player.pos.y - enemy.pos.y, player.pos.x - enemy.pos.x);
                spawnBullet(state, 'enemy', enemy.pos.x, enemy.pos.y, angle, BULLET_SPEED_ENEMY * 1.5);
@@ -992,22 +930,41 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                enemy.shootTimer = 0;
           }
       }
-      if (enemy.pos.y > CANVAS_HEIGHT + 100) enemy.markedForDeletion = true;
-    });
+      if (enemy.hp <= 0) {
+          playSound('explode');
+          state.score += enemy.scoreValue;
+          createExplosion(state, enemy.pos.x, enemy.pos.y, 15, enemy.color);
+          spawnPowerUp(state, enemy.pos.x, enemy.pos.y);
+          state.cameraShake = 2;
+          if (enemy.type === 'boss') {
+              state.bossActive = false;
+              state.level++;
+              state.nextBossScoreThreshold = state.score + BOSS_SCORE_THRESHOLD * state.level;
+              state.levelTransitionTimer = 180; 
+              state.bullets = state.bullets.filter((b: Bullet) => b.owner === 'player');
+              player.hp = Math.min(player.hp + 50, player.maxHp);
+          }
+          state.enemies.splice(i, 1);
+          continue;
+      }
+      if (enemy.pos.y > CANVAS_HEIGHT + 100) {
+          state.enemies.splice(i, 1);
+      }
+    }
 
-    // --- Update Bullets ---
-    state.bullets.forEach(bullet => {
+    // Update Bullets (Optimized: Reverse Loop)
+    for (let i = state.bullets.length - 1; i >= 0; i--) {
+      const bullet = state.bullets[i];
       if ((bullet.behavior === 'homing' || bullet.behavior === 'mine') && bullet.owner === 'player') {
           let closest = null;
           let minDst = 500;
           for(const e of state.enemies) {
-             if(e.markedForDeletion) continue;
              const d = Math.hypot(e.pos.x - bullet.pos.x, e.pos.y - bullet.pos.y);
              if (d < minDst && e.pos.y > 0 && e.pos.y < CANVAS_HEIGHT) { minDst = d; closest = e; }
           }
           if (closest) {
               const angle = Math.atan2(closest.pos.y - bullet.pos.y, closest.pos.x - bullet.pos.x);
-              const turnSpeed = bullet.behavior === 'mine' ? 0.05 : 0.15; // Mines turn slow
+              const turnSpeed = bullet.behavior === 'mine' ? 0.05 : 0.15; 
               const speed = bullet.behavior === 'mine' ? BULLET_SPEED_PLAYER * 0.6 : BULLET_SPEED_PLAYER;
               bullet.vel.x += (Math.cos(angle) * speed - bullet.vel.x) * turnSpeed;
               bullet.vel.y += (Math.sin(angle) * speed - bullet.vel.y) * turnSpeed;
@@ -1017,32 +974,32 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       bullet.pos.x += bullet.vel.x;
       bullet.pos.y += bullet.vel.y;
       if (bullet.pos.x < -50 || bullet.pos.x > CANVAS_WIDTH + 50 || bullet.pos.y < -100 || bullet.pos.y > CANVAS_HEIGHT + 50) {
-        bullet.markedForDeletion = true;
+        state.bullets.splice(i, 1);
+        continue;
       }
-    });
+      if (bullet.markedForDeletion) {
+        state.bullets.splice(i, 1);
+      }
+    }
 
-    // --- PowerUps ---
-    state.powerUps.forEach(p => {
+    // PowerUps (Optimized: Reverse Loop)
+    for (let i = state.powerUps.length - 1; i >= 0; i--) {
+        const p = state.powerUps[i];
         p.pos.y += p.vel.y;
         const dist = Math.hypot(p.pos.x - player.pos.x, p.pos.y - player.pos.y);
         if (dist < 100) { p.pos.x += (player.pos.x - p.pos.x) * 0.05; p.pos.y += (player.pos.y - p.pos.y) * 0.05; }
         if (dist < p.width + player.width/2) {
-            p.markedForDeletion = true;
-            
             if (p.type === 'SCORE_GOLD') {
-                const amount = Math.floor(Math.random() * 800) + 200; // 200-1000
-                state.score += amount;
+                state.score += Math.floor(Math.random() * 800) + 200;
                 playSound('coin');
             } else if (p.type === 'SCORE_SILVER') {
-                const amount = Math.floor(Math.random() * 450) + 50; // 50-500
-                state.score += amount;
+                state.score += Math.floor(Math.random() * 450) + 50; 
                 playSound('coin');
             } else if (p.type === 'INVINCIBILITY') {
                 playSound('invincible');
-                player.invulnerableTimer = 300; // 5 Seconds (300 frames)
-                player.lastHitFrame = 0; // Don't interrupt regen? or should we?
+                player.invulnerableTimer = 300; 
+                player.lastHitFrame = 0; 
                 state.score += 500;
-                // Add a visual flash
                 createExplosion(state, player.pos.x, player.pos.y, 10, COLORS.POWERUP_INVINCIBILITY);
             } else {
                 playSound('powerup');
@@ -1060,12 +1017,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                     }
                 }
             }
+            state.powerUps.splice(i, 1);
+            continue;
         }
-        if (p.pos.y > CANVAS_HEIGHT + 50) p.markedForDeletion = true;
-    });
+        if (p.pos.y > CANVAS_HEIGHT + 50) state.powerUps.splice(i, 1);
+    }
 
-    // --- Particle Updates (Fixes white screen bug) ---
-    state.particles.forEach(p => {
+    // Particles (Optimized: Reverse Loop)
+    for (let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i];
         if (p.type === 'shockwave') {
             p.scale += 5;
             p.life -= 0.04;
@@ -1075,81 +1035,54 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
              p.pos.y += p.vel.y;
              p.rotation! += p.rotationSpeed!;
         } else {
-            p.life -= 0.02; // Decay
+            p.life -= 0.02; 
             p.pos.x += p.vel.x;
             p.pos.y += p.vel.y;
         }
-        if (p.life <= 0) p.markedForDeletion = true;
+        if (p.life <= 0) state.particles.splice(i, 1);
+    }
+
+    // Collisions (Player Bullets -> Enemies)
+    state.bullets.forEach(bullet => {
+        if (bullet.owner !== 'player' || bullet.markedForDeletion) return;
+        state.enemies.forEach(enemy => {
+           if (Math.abs(bullet.pos.x - enemy.pos.x) < enemy.width/2 + bullet.width/2 && 
+               Math.abs(bullet.pos.y - enemy.pos.y) < enemy.height/2 + bullet.height/2) {
+                 let damage = bullet.damage;
+                 let isCrit = false;
+                 if (enemy.type === 'boss') {
+                      const distToCenter = Math.hypot(bullet.pos.x - enemy.pos.x, bullet.pos.y - enemy.pos.y);
+                      if (distToCenter < 20) { damage *= 1.5; isCrit = true; }
+                 }
+                 enemy.hp -= damage;
+                 if (bullet.behavior !== 'beam' && bullet.behavior !== 'mine') bullet.markedForDeletion = true; 
+                 createExplosion(state, bullet.pos.x, bullet.pos.y, 1, isCrit ? '#fff' : bullet.color);
+           }
+        });
     });
 
-    // --- Collisions ---
-    state.bullets.filter(b => b.owner === 'player').forEach(bullet => {
-       state.enemies.forEach(enemy => {
-          if (enemy.markedForDeletion || bullet.markedForDeletion) return;
-          if (Math.abs(bullet.pos.x - enemy.pos.x) < enemy.width/2 + bullet.width/2 && 
-              Math.abs(bullet.pos.y - enemy.pos.y) < enemy.height/2 + bullet.height/2) {
-                
-                // BOSS Weakpoint: Center mass
-                let damage = bullet.damage;
-                let isCrit = false;
-                if (enemy.type === 'boss') {
-                     const distToCenter = Math.hypot(bullet.pos.x - enemy.pos.x, bullet.pos.y - enemy.pos.y);
-                     if (distToCenter < 20) {
-                         damage *= 1.5;
-                         isCrit = true;
-                     }
-                }
-                
-                enemy.hp -= damage;
-                
-                if (bullet.behavior !== 'beam' && bullet.behavior !== 'mine') bullet.markedForDeletion = true; // Beams penetrate
-                createExplosion(state, bullet.pos.x, bullet.pos.y, 1, isCrit ? '#fff' : bullet.color);
-                
-                if (enemy.hp <= 0) {
-                    playSound('explode');
-                    enemy.markedForDeletion = true;
-                    state.score += enemy.scoreValue;
-                    createExplosion(state, enemy.pos.x, enemy.pos.y, 15, enemy.color);
-                    spawnPowerUp(state, enemy.pos.x, enemy.pos.y);
-                    state.cameraShake = 2;
-                    if (enemy.type === 'boss') {
-                        state.bossActive = false;
-                        state.level++;
-                        state.nextBossScoreThreshold = state.score + BOSS_SCORE_THRESHOLD * state.level;
-                        state.levelTransitionTimer = 180; 
-                        state.bullets = state.bullets.filter(b => b.owner === 'player');
-                        player.hp = Math.min(player.hp + 50, player.maxHp);
-                    }
-                }
-          }
-       });
-    });
-
+    // Collisions (Enemies/EnemyBullets -> Player)
     if (player.invulnerableTimer > 0) player.invulnerableTimer--;
     else {
-       state.bullets.filter(b => b.owner === 'enemy').forEach(bullet => {
-           if (bullet.markedForDeletion) return;
+       state.bullets.forEach(bullet => {
+           if (bullet.owner !== 'enemy' || bullet.markedForDeletion) return;
            if (Math.hypot(bullet.pos.x - player.pos.x, bullet.pos.y - player.pos.y) < PLAYER_HITBOX + bullet.width/2) {
                bullet.markedForDeletion = true;
                player.hp -= 15;
                player.invulnerableTimer = 60;
-               player.lastHitFrame = state.frame; // Reset regen
-               
-               // Damage Feedback
+               player.lastHitFrame = state.frame; 
                state.cameraShake = 10;
                createExplosion(state, player.pos.x, player.pos.y, 10, COLORS.PLAYER);
                playSound('explode');
-               
                if (player.hp <= 0) setGameState(GameState.GAME_OVER);
            }
        });
        state.enemies.forEach(enemy => {
-           if (enemy.markedForDeletion) return;
            if (Math.hypot(enemy.pos.x - player.pos.x, enemy.pos.y - player.pos.y) < (enemy.width + player.width) / 2.5) {
                 player.hp -= 30;
                 enemy.hp -= 50;
                 player.invulnerableTimer = 60;
-                player.lastHitFrame = state.frame; // Reset regen
+                player.lastHitFrame = state.frame; 
                 state.cameraShake = 15;
                 createExplosion(state, (player.pos.x+enemy.pos.x)/2, (player.pos.y+enemy.pos.y)/2, 20, '#fff');
                 playSound('explode');
@@ -1157,11 +1090,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
            }
        });
     }
-
-    state.bullets = state.bullets.filter(b => !b.markedForDeletion);
-    state.enemies = state.enemies.filter(e => !e.markedForDeletion);
-    state.particles = state.particles.filter(p => !p.markedForDeletion);
-    state.powerUps = state.powerUps.filter(p => !p.markedForDeletion);
 
     if (state.frame % 5 === 0) {
         setScore(state.score);
@@ -1181,20 +1109,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     ctx.fillStyle = '#02040a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    ctx.save();
     
-    // Camera Shake
     if (cameraShake > 0) {
         ctx.translate((Math.random()-0.5)*cameraShake, (Math.random()-0.5)*cameraShake);
     }
 
-    // --- Background ---
     state.stars.forEach(star => {
         ctx.globalAlpha = Math.random() * 0.3 + star.brightness * 0.5;
         ctx.fillStyle = COLORS.STAR;
         ctx.beginPath(); ctx.arc(star.x, star.y, star.size, 0, Math.PI*2); ctx.fill();
     });
-    // Draw clouds BEHIND enemies but after stars
     state.clouds.forEach(c => {
          ctx.fillStyle = '#1e3a8a';
          ctx.globalAlpha = c.alpha;
@@ -1202,42 +1126,52 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     });
     ctx.globalAlpha = 1.0;
 
-    // --- Entities ---
-    
-    // PowerUps
+    // Render Bomb Squad
+    state.bombSquad.forEach(plane => {
+        ctx.save();
+        ctx.translate(plane.x, plane.y);
+        // Draw shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.5)';
+        ctx.beginPath(); ctx.moveTo(0, -15); ctx.lineTo(10, 20); ctx.lineTo(-10, 20); ctx.fill();
+        
+        // Draw Plane
+        ctx.fillStyle = '#94a3b8'; // Slate-400
+        ctx.beginPath(); 
+        ctx.moveTo(0, -20); 
+        ctx.lineTo(15, 15); 
+        ctx.lineTo(0, 5); 
+        ctx.lineTo(-15, 15); 
+        ctx.fill();
+        
+        // Engine Glow
+        ctx.fillStyle = '#f97316'; // Orange
+        ctx.beginPath(); ctx.arc(-8, 15, 2, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(8, 15, 2, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    });
+
     state.powerUps.forEach(p => {
         if (p.type === 'SCORE_GOLD' || p.type === 'SCORE_SILVER') {
-             // Render Coins
              ctx.save(); ctx.translate(p.pos.x, p.pos.y); 
-             // 3D Spin Effect
              const scaleX = Math.cos(state.frame * 0.1);
              ctx.scale(scaleX, 1);
-             
              const color = p.type === 'SCORE_GOLD' ? COLORS.SCORE_GOLD : COLORS.SCORE_SILVER;
              ctx.shadowBlur = 15; ctx.shadowColor = color;
              ctx.fillStyle = color;
-             
              ctx.beginPath(); ctx.arc(0,0, 12, 0, Math.PI*2); ctx.fill();
              ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
-             
-             // Symbol
              ctx.fillStyle = '#fff'; 
              ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
              ctx.fillText('$', 0, 1);
-             
              ctx.restore();
         } else if (p.type === 'INVINCIBILITY') {
-             // Render Shield Item
              ctx.save(); ctx.translate(p.pos.x, p.pos.y);
              ctx.shadowBlur = 20; ctx.shadowColor = COLORS.POWERUP_INVINCIBILITY;
              ctx.fillStyle = '#222';
              ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.fill();
              ctx.strokeStyle = COLORS.POWERUP_INVINCIBILITY; ctx.lineWidth = 3; ctx.stroke();
-             
              ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-             ctx.fillText('S', 0, 0); // S for Shield
-             
-             // Pulse ring
+             ctx.fillText('S', 0, 0); 
              ctx.beginPath(); ctx.arc(0, 0, 18 + Math.sin(state.frame * 0.2) * 2, 0, Math.PI*2); 
              ctx.strokeStyle = `rgba(34, 211, 238, ${0.5 + Math.sin(state.frame * 0.2)*0.3})`;
              ctx.stroke();
@@ -1253,7 +1187,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
     });
 
-    // Bullets
     state.bullets.forEach(b => {
         ctx.shadowBlur = 8; ctx.shadowColor = b.color; ctx.fillStyle = b.color;
         if (b.owner === 'player') {
@@ -1262,7 +1195,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                  ctx.shadowBlur = 15;
                  ctx.fillStyle = COLORS.PLAYER_PLASMA;
                  ctx.beginPath(); ctx.arc(0, 0, b.behavior === 'mine' ? 9 : 7, 0, Math.PI*2); ctx.fill();
-                 // Outer rings
                  ctx.strokeStyle = COLORS.PLAYER_PLASMA; ctx.lineWidth = 1;
                  ctx.beginPath(); ctx.arc(0, 0, 10 + Math.sin(state.frame*0.5)*2, 0, Math.PI*2); ctx.stroke();
              } else if (b.behavior === 'beam') {
@@ -1278,28 +1210,23 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.shadowBlur = 0;
     });
 
-    // Player
     const isShieldActive = player.invulnerableTimer > 60; 
     
     if (isShieldActive || Math.floor(player.invulnerableTimer / 4) % 2 === 0) {
         ctx.save(); ctx.translate(player.pos.x, player.pos.y);
         ctx.fillStyle = player.color;
         
-        // Shadow on ground
         ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(0, 40, 20, 10, 0, 0, Math.PI*2); ctx.fill();
 
-        // Detailed Ship
         ctx.fillStyle = player.color;
         ctx.beginPath(); 
         ctx.moveTo(0, -25); 
         ctx.lineTo(8, -10); ctx.lineTo(15, 20); ctx.lineTo(0, 15); ctx.lineTo(-15, 20); ctx.lineTo(-8, -10); 
         ctx.fill();
-        // Wings
         ctx.fillStyle = '#94a3b8';
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(25, 15); ctx.lineTo(25, 25); ctx.lineTo(5, 20); ctx.fill();
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-25, 15); ctx.lineTo(-25, 25); ctx.lineTo(-5, 20); ctx.fill();
 
-        // Invincibility Shield Effect
         if (isShieldActive) {
             ctx.shadowBlur = 10;
             ctx.shadowColor = COLORS.POWERUP_INVINCIBILITY;
@@ -1313,7 +1240,6 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             ctx.globalAlpha = 1.0;
         }
 
-        // Shield regen effect
         if (state.frame - player.lastHitFrame > REGEN_DELAY_FRAMES && player.hp < player.maxHp) {
             ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2; ctx.globalAlpha = 0.5 + Math.sin(state.frame*0.2)*0.3;
             ctx.beginPath(); ctx.arc(0, 0, 35, 0, Math.PI*2); ctx.stroke();
@@ -1321,69 +1247,58 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.restore();
     }
 
-    // Enemies
     state.enemies.forEach(e => {
         ctx.save(); ctx.translate(e.pos.x, e.pos.y);
         ctx.fillStyle = e.color;
         ctx.shadowColor = e.color;
         
-        // Shadow
         ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(0, 40, e.width/2, e.height/4, 0, 0, Math.PI*2); ctx.fill();
         ctx.fillStyle = e.color;
 
-        // Detailed Enemy Shapes
         if (e.type === 'boss') {
             ctx.shadowBlur = 10;
-            // Main Body
             ctx.beginPath();
             ctx.moveTo(0, -60);
             ctx.lineTo(40, -20); ctx.lineTo(60, 20); ctx.lineTo(30, 50); ctx.lineTo(-30, 50); ctx.lineTo(-60, 20); ctx.lineTo(-40, -20);
             ctx.closePath();
             ctx.fill();
-            // Core
             ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 15, 0, Math.PI*2); ctx.fill();
         } else if (e.type === 'fighter') {
-            // Delta Wing
             ctx.beginPath();
             ctx.moveTo(0, 15); ctx.lineTo(15, -15); ctx.lineTo(0, -5); ctx.lineTo(-15, -15);
             ctx.closePath();
             ctx.fill();
         } else if (e.type === 'interceptor') {
-            // Sharp Arrow
             ctx.beginPath();
             ctx.moveTo(0, 20); ctx.lineTo(10, -20); ctx.lineTo(0, -10); ctx.lineTo(-10, -20);
             ctx.closePath();
             ctx.fill();
         } else if (e.type === 'bomber') {
-            // Flying Wing
             ctx.beginPath();
             ctx.moveTo(0, 10); ctx.lineTo(25, -10); ctx.lineTo(0, -5); ctx.lineTo(-25, -10);
             ctx.closePath();
             ctx.fill();
         } else if (e.type === 'tank') {
-            // Boxy
             ctx.fillRect(-20, -20, 40, 40);
-            ctx.fillStyle = '#000'; ctx.fillRect(-5, 0, 10, 25); // Gun
+            ctx.fillStyle = '#000'; ctx.fillRect(-5, 0, 10, 25); 
         }
         ctx.shadowBlur = 0;
         ctx.restore();
     });
 
-    // Particles
     state.particles.forEach(p => {
         ctx.save(); ctx.translate(p.pos.x, p.pos.y);
         ctx.globalAlpha = Math.max(0, p.life);
         
         if (p.id === 'bomb_flash') { 
             ctx.fillStyle = '#fff'; 
-            ctx.resetTransform(); // Fill screen
+            ctx.resetTransform(); 
             ctx.fillRect(0,0, CANVAS_WIDTH, CANVAS_HEIGHT); 
         } else if (p.type === 'shockwave') {
             ctx.strokeStyle = p.color;
             ctx.lineWidth = 4;
             ctx.beginPath(); ctx.arc(0, 0, p.scale, 0, Math.PI*2); ctx.stroke();
         } else if (p.subtype === 'debris') {
-            // Rotating Debris
             ctx.rotate(p.rotation || 0);
             ctx.fillStyle = p.color;
             ctx.fillRect(-p.scale, -p.scale, p.scale*2, p.scale*2);
@@ -1394,13 +1309,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.restore();
     });
     
-    // Damage Flash Overlay
     if (state.player.invulnerableTimer > 55 && !isShieldActive && player.hp > 0) {
         ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
 
-    // Level HUD
     if (state.levelTransitionTimer > 0) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, CANVAS_HEIGHT/2-50, CANVAS_WIDTH, 100);
         ctx.fillStyle = '#fbbf24'; 
@@ -1409,13 +1322,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.fillText(`第 ${state.level} 关`, CANVAS_WIDTH/2, CANVAS_HEIGHT/2 + 10);
     }
 
-    ctx.restore();
+    // Reset transform
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
   };
 
   const loop = () => { update(); render(); requestRef.current = requestAnimationFrame(loop); };
   useEffect(() => { requestRef.current = requestAnimationFrame(loop); return () => cancelAnimationFrame(requestRef.current); }, [gameState]);
 
-  // Initial Reset
   useEffect(() => {
      if (gameState === GameState.PLAYING && stateRef.current.frame === 0) resetGame();
   }, [gameState, startingWeapon]);
