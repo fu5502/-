@@ -2,7 +2,7 @@
 
 > 重燃街机热血！基于 React + Canvas 的现代复刻版《雷电》弹幕射击游戏。
 
-![Game Banner](https://raw.githubusercontent.com/fu5502/-/refs/heads/main/s.png)
+![Game Banner](docs/banner.png)
 <!-- 💡 提示：请将使用 promo.html 生成的横版截图重命名为 banner.png 并放在 docs 文件夹下 -->
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
