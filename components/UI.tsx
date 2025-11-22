@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { GameState, WeaponType } from '../types';
-import { Activity, Bomb, Trophy, Skull, RotateCcw, Crosshair, Zap, CircleDashed, ChevronRight, ChevronLeft, Play, Info, X, Keyboard, MousePointer2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { GameState, WeaponType, LeaderboardEntry } from '../types';
+import { Activity, Bomb, Trophy, Skull, RotateCcw, Crosshair, Zap, CircleDashed, ChevronRight, ChevronLeft, Play, Info, X, Keyboard, Loader2, Globe, WifiOff } from 'lucide-react';
+import { supabase } from '../supabaseClient';
 
 interface UIProps {
   gameState: GameState;
@@ -28,7 +29,105 @@ const UI: React.FC<UIProps> = ({
   setStartingWeapon
 }) => {
   const [showHelp, setShowHelp] = useState(false);
-  
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
+  const [playerName, setPlayerName] = useState('');
+  const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [highScores, setHighScores] = useState<LeaderboardEntry[]>([]);
+  const [isOnline, setIsOnline] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Check connection and load initial data
+  useEffect(() => {
+      const checkConnection = async () => {
+          if (supabase) {
+              setIsOnline(true);
+              await fetchScores();
+          } else {
+              setIsOnline(false);
+              loadLocalScores();
+          }
+      };
+      
+      if (showLeaderboard || gameState === GameState.GAME_OVER || gameState === GameState.VICTORY) {
+          checkConnection();
+      }
+  }, [showLeaderboard, gameState]);
+
+  const loadLocalScores = () => {
+      const saved = localStorage.getItem('raiden_scores');
+      if (saved) {
+          try { setHighScores(JSON.parse(saved)); } catch (e) {}
+      } else {
+          setHighScores([
+              { name: 'PILOT-001', score: 50000, date: '2023-10-01' },
+              { name: 'ACE_FOX', score: 35000, date: '2023-10-02' },
+              { name: 'ROOKIE', score: 10000, date: '2023-10-03' }
+          ]);
+      }
+  };
+
+  const fetchScores = async () => {
+      if (!supabase) return;
+      setIsLoading(true);
+      try {
+          const { data, error } = await supabase
+              .from('leaderboard')
+              .select('*')
+              .order('score', { ascending: false })
+              .limit(50);
+          
+          if (error) throw error;
+          if (data) setHighScores(data);
+      } catch (err) {
+          console.error('Error fetching scores:', err);
+          // Fallback to local if fetch fails
+          loadLocalScores();
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
+  const saveScore = async () => {
+      if (!playerName.trim()) return;
+      setIsLoading(true);
+      const dateStr = new Date().toLocaleDateString();
+      
+      try {
+          if (supabase && isOnline) {
+              // Online Save
+              const { error } = await supabase
+                  .from('leaderboard')
+                  .insert([{ 
+                      name: playerName.toUpperCase().slice(0, 10), 
+                      score: score, 
+                      date: dateStr 
+                  }]);
+              
+              if (error) throw error;
+              await fetchScores(); // Refresh list
+          } else {
+              // Local Save
+              const newEntry: LeaderboardEntry = {
+                  name: playerName.toUpperCase().slice(0, 10),
+                  score: score,
+                  date: dateStr
+              };
+              const currentScores = [...highScores, newEntry]
+                  .sort((a, b) => b.score - a.score)
+                  .slice(0, 10); // Keep only top 10 locally
+              
+              setHighScores(currentScores);
+              localStorage.setItem('raiden_scores', JSON.stringify(currentScores));
+          }
+          setHasSubmitted(true);
+      } catch (err) {
+          console.error('Error saving score:', err);
+          alert('提交失败，请重试');
+      } finally {
+          setIsLoading(false);
+      }
+  };
+
   const getWeaponIcon = (type: WeaponType) => {
     switch (type) {
         case WeaponType.VULCAN: return <Crosshair className="w-6 h-6" />;
@@ -39,9 +138,9 @@ const UI: React.FC<UIProps> = ({
 
   const getWeaponName = (type: WeaponType) => {
     switch (type) {
-        case WeaponType.VULCAN: return "VULCAN (散弹)";
-        case WeaponType.LASER: return "LASER (激光)";
-        case WeaponType.PLASMA: return "PLASMA (追踪)";
+        case WeaponType.VULCAN: return "红莲散弹 (VULCAN)";
+        case WeaponType.LASER: return "苍穹激光 (LASER)";
+        case WeaponType.PLASMA: return "紫电追踪 (PLASMA)";
     }
   };
 
@@ -61,167 +160,112 @@ const UI: React.FC<UIProps> = ({
       setStartingWeapon(next as WeaponType);
   };
 
+  // Reset submission state when game ends
+  useEffect(() => {
+      if (gameState === GameState.GAME_OVER || gameState === GameState.VICTORY) {
+          setHasSubmitted(false);
+          setPlayerName('');
+      }
+  }, [gameState]);
+
+  // LEADERBOARD MODAL
+  const LeaderboardView = ({ onClose }: { onClose?: () => void }) => (
+      <div className="absolute inset-0 z-60 bg-black/95 flex flex-col p-6 animate-in fade-in slide-in-from-bottom-5">
+          <div className="flex justify-between items-center mb-6 border-b border-gray-800 pb-4">
+              <div className="flex flex-col">
+                  <h2 className="text-2xl font-black text-yellow-500 flex items-center gap-2">
+                      <Trophy /> 英雄榜 HALL OF FAME
+                  </h2>
+                  <div className="flex items-center gap-2 mt-1">
+                      {isOnline ? (
+                          <span className="text-xs font-bold text-green-400 flex items-center gap-1"><Globe size={12} /> 全球联机 ONLINE</span>
+                      ) : (
+                          <span className="text-xs font-bold text-gray-500 flex items-center gap-1"><WifiOff size={12} /> 本地模式 LOCAL</span>
+                      )}
+                  </div>
+              </div>
+              {onClose && (
+                  <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-full text-white">
+                      <X />
+                  </button>
+              )}
+          </div>
+          <div className="flex-1 overflow-y-auto custom-scrollbar">
+              {isLoading ? (
+                  <div className="flex justify-center items-center h-40 text-blue-400">
+                      <Loader2 className="animate-spin w-8 h-8" />
+                  </div>
+              ) : (
+                  <table className="w-full text-left border-collapse">
+                      <thead>
+                          <tr className="text-gray-500 text-sm border-b border-gray-800 sticky top-0 bg-black/90">
+                              <th className="py-2">排名</th>
+                              <th className="py-2">机师代号</th>
+                              <th className="py-2 text-right">得分</th>
+                              <th className="py-2 text-right">日期</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          {highScores.map((entry, idx) => (
+                              <tr key={idx} className={`border-b border-gray-800/50 transition-colors ${entry.name === playerName ? 'bg-blue-900/30' : 'hover:bg-white/5'}`}>
+                                  <td className="py-3 font-mono text-gray-400 pl-2">
+                                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : idx + 1}
+                                  </td>
+                                  <td className="py-3 font-bold text-white tracking-widest">{entry.name}</td>
+                                  <td className="py-3 font-mono text-blue-400 text-right">{entry.score.toLocaleString()}</td>
+                                  <td className="py-3 text-gray-600 text-xs text-right pr-2">{entry.date}</td>
+                              </tr>
+                          ))}
+                          {highScores.length === 0 && (
+                              <tr><td colSpan={4} className="py-8 text-center text-gray-600">暂无数据 NO DATA</td></tr>
+                          )}
+                      </tbody>
+                  </table>
+              )}
+          </div>
+      </div>
+  );
+
   if (gameState === GameState.MENU) {
     return (
       <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-50 backdrop-blur-sm">
+        {showLeaderboard && <LeaderboardView onClose={() => setShowLeaderboard(false)} />}
         {showHelp && (
-            <div className="absolute inset-0 z-60 bg-black/95 flex flex-col overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-bottom-10 duration-300">
-                <div className="sticky top-0 bg-gray-900/95 border-b border-blue-500/30 p-4 flex justify-between items-center backdrop-blur-md z-10">
-                    <div className="flex items-center gap-2">
-                        <Info className="text-blue-400" />
-                        <h2 className="text-xl font-bold text-white tracking-widest">作战说明 MISSION BRIEFING</h2>
-                    </div>
-                    <button onClick={() => setShowHelp(false)} className="p-2 hover:bg-white/10 rounded-full text-white transition-colors">
-                        <X size={24} />
-                    </button>
+            <div className="absolute inset-0 z-60 bg-black/95 flex flex-col overflow-y-auto custom-scrollbar p-6">
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold text-blue-400">作战说明 INSTRUCTIONS</h2>
+                    <button onClick={() => setShowHelp(false)} className="text-white"><X /></button>
                 </div>
-                
-                <div className="p-6 space-y-8 max-w-lg mx-auto w-full pb-20">
-                    {/* Story */}
-                    <div className="border-l-4 border-blue-500 pl-4 py-1">
-                        <p className="text-gray-300 text-sm leading-relaxed font-mono">
-                            公元 2077 年，外星机械军团入侵地球。作为“雷电”特攻队的最后王牌，你将驾驶超音速战机，穿越枪林弹雨，摧毁敌方核心。
-                        </p>
-                    </div>
-
-                    {/* Controls */}
-                    <section>
-                        <h3 className="text-blue-400 font-bold text-sm mb-4 flex items-center gap-2 uppercase tracking-widest border-b border-blue-500/30 pb-1">
-                            <Keyboard size={16} /> 操作指南 Controls
-                        </h3>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-gray-900 p-3 rounded border border-gray-800 flex flex-col gap-2">
-                                <div className="text-xs text-gray-500 uppercase">移动 Movement</div>
-                                <div className="flex gap-2 text-white font-mono text-sm">
-                                    <span className="px-2 py-1 bg-gray-800 rounded border border-gray-700">WASD</span>
-                                    <span className="px-2 py-1 bg-gray-800 rounded border border-gray-700">↑↓←→</span>
-                                </div>
-                                <div className="text-xs text-gray-500 mt-1">触摸拖动 Touch Drag</div>
-                            </div>
-                            <div className="bg-gray-900 p-3 rounded border border-gray-800 flex flex-col gap-2">
-                                <div className="text-xs text-gray-500 uppercase">攻击 Attack</div>
-                                <div className="flex flex-col gap-1">
-                                    <div className="text-white font-mono text-sm">
-                                        <span className="text-xs text-gray-400">射击:</span> 自动 / Space
-                                    </div>
-                                    <div className="text-white font-mono text-sm">
-                                        <span className="text-xs text-gray-400">炸弹:</span> B / Shift
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Weapons */}
-                    <section>
-                        <h3 className="text-blue-400 font-bold text-sm mb-4 flex items-center gap-2 uppercase tracking-widest border-b border-blue-500/30 pb-1">
-                            <Crosshair size={16} /> 武器系统 Weapons
-                        </h3>
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-4 bg-gray-900/50 p-3 rounded border border-gray-800">
-                                <div className="w-10 h-10 rounded-full bg-red-900/30 border border-red-500 flex items-center justify-center text-red-500 font-bold">R</div>
-                                <div>
-                                    <div className="text-red-400 font-bold text-sm">散弹 Vulcan</div>
-                                    <div className="text-gray-500 text-xs">广域覆盖，包含微型跟踪导弹。</div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4 bg-gray-900/50 p-3 rounded border border-gray-800">
-                                <div className="w-10 h-10 rounded-full bg-blue-900/30 border border-blue-500 flex items-center justify-center text-blue-500 font-bold">L</div>
-                                <div>
-                                    <div className="text-blue-400 font-bold text-sm">激光 Laser</div>
-                                    <div className="text-gray-500 text-xs">直线高伤，包含侧翼能量波。</div>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-4 bg-gray-900/50 p-3 rounded border border-gray-800">
-                                <div className="w-10 h-10 rounded-full bg-purple-900/30 border border-purple-500 flex items-center justify-center text-purple-500 font-bold">P</div>
-                                <div>
-                                    <div className="text-purple-400 font-bold text-sm">等离子 Plasma</div>
-                                    <div className="text-gray-500 text-xs">全屏追踪，包含穿透性主炮。</div>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Items */}
-                    <section>
-                        <h3 className="text-blue-400 font-bold text-sm mb-4 flex items-center gap-2 uppercase tracking-widest border-b border-blue-500/30 pb-1">
-                            <Activity size={16} /> 支援道具 Items
-                        </h3>
-                        <div className="grid grid-cols-2 gap-3">
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded bg-yellow-900/30 border border-yellow-500 flex items-center justify-center text-yellow-500 text-xs font-bold">UP</div>
-                                <div className="text-xs text-gray-400">火力升级 (MAX Lv.4)</div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded bg-amber-900/30 border border-amber-500 flex items-center justify-center text-amber-500 text-xs font-bold">B</div>
-                                <div className="text-xs text-gray-400">全屏炸弹补给</div>
-                            </div>
-                            <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded bg-green-900/30 border border-green-500 flex items-center justify-center text-green-500 text-xs font-bold">H</div>
-                                <div className="text-xs text-gray-400">护盾修复</div>
-                            </div>
-                        </div>
-                    </section>
+                <div className="space-y-4 text-gray-300 text-sm leading-relaxed">
+                    <p className="flex items-center gap-2"><Keyboard size={16} /> <strong>移动操作：</strong>使用 WASD 或 方向键 移动战机。</p>
+                    <p className="flex items-center gap-2"><Zap size={16} /> <strong>攻击模式：</strong>战机自动开火。按 SPACE 空格键也可射击。</p>
+                    <p className="flex items-center gap-2"><Bomb size={16} /> <strong>护身炸弹：</strong>按 B 键或 Shift 键释放全屏炸弹，清除敌机与弹幕。</p>
+                    <div className="h-px bg-gray-700 my-2"></div>
+                    <p><strong>武器升级：</strong>拾取与当前武器同色的 [P] 道具可提升威力，最高 LV.8！拾取异色道具可切换武器类型。</p>
+                    <p><strong>纳米修复：</strong>若5秒内未受到任何伤害，战机护盾将缓慢自动充能。</p>
                 </div>
             </div>
         )}
 
-        <div className="relative w-full max-w-sm mx-4 p-8 border-2 border-blue-500/30 bg-gray-900/95 shadow-[0_0_50px_rgba(59,130,246,0.2)] flex flex-col items-center gap-6 rounded-xl overflow-hidden">
-          {/* Decorative Grid */}
-          <div className="absolute inset-0 bg-[linear-gradient(rgba(59,130,246,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(59,130,246,0.1)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none opacity-30"></div>
+        <div className="relative w-full max-w-sm p-8 bg-gray-900/95 border border-blue-500/30 rounded-xl shadow-[0_0_50px_rgba(59,130,246,0.2)] text-center">
+          <h1 className="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white to-blue-600 mb-2">雷电</h1>
+          <h2 className="text-2xl font-bold text-white tracking-[0.5em] mb-8">REACT</h2>
           
-          <div className="relative z-10 text-center mb-4">
-            <div className="inline-block mb-2 px-3 py-1 rounded-full bg-blue-900/50 border border-blue-500/50 text-blue-400 text-xs font-mono tracking-widest">
-              SYSTEM READY
-            </div>
-            <h1 className="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white via-blue-200 to-blue-600 mb-0 tracking-tighter drop-shadow-[0_0_15px_rgba(59,130,246,0.8)]">
-                雷电
-            </h1>
-            <h2 className="text-3xl font-black text-white/90 tracking-[0.5em] ml-2 -mt-2">REACT</h2>
-          </div>
-
-          {/* Weapon Selection */}
-          <div className="relative z-10 w-full bg-black/40 p-4 rounded-lg border border-gray-700/50 backdrop-blur-md">
-              <p className="text-gray-400 text-xs font-mono mb-3 text-center uppercase tracking-widest border-b border-gray-700/50 pb-2">
-                武器选择 Weapon Select
-              </p>
+          <div className="bg-black/40 p-4 rounded border border-gray-700 mb-6">
               <div className="flex items-center justify-between">
-                  <button onClick={() => cycleWeapon(-1)} className="p-2 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors">
-                      <ChevronLeft size={24} />
-                  </button>
-                  
-                  <div className={`flex flex-col items-center gap-3 transition-all duration-300 group`}>
-                      <div className={`p-5 rounded-2xl border-2 bg-gray-900/80 shadow-lg transition-all duration-300 ${getWeaponColor(startingWeapon)}`}>
-                          {getWeaponIcon(startingWeapon)}
-                      </div>
-                      <div className="font-bold font-mono text-lg text-white">
-                          {getWeaponName(startingWeapon)}
-                      </div>
+                  <button onClick={() => cycleWeapon(-1)} className="text-white/50 hover:text-white"><ChevronLeft /></button>
+                  <div className="flex flex-col items-center">
+                      <div className={`p-4 rounded-full border-2 mb-2 ${getWeaponColor(startingWeapon)}`}>{getWeaponIcon(startingWeapon)}</div>
+                      <span className="text-white font-mono text-sm">{getWeaponName(startingWeapon)}</span>
                   </div>
-
-                  <button onClick={() => cycleWeapon(1)} className="p-2 hover:bg-white/10 rounded-full text-white/70 hover:text-white transition-colors">
-                      <ChevronRight size={24} />
-                  </button>
+                  <button onClick={() => cycleWeapon(1)} className="text-white/50 hover:text-white"><ChevronRight /></button>
               </div>
           </div>
 
-          <div className="relative z-10 w-full flex flex-col gap-3">
-              <button 
-                onClick={onStart}
-                className="w-full group bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 text-white font-bold py-4 px-6 rounded-lg shadow-lg transform transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 overflow-hidden"
-              >
-                <div className="absolute inset-0 bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.2)_50%,transparent_75%)] bg-[length:250%_250%] animate-[shimmer_2s_linear_infinite] opacity-0 group-hover:opacity-100"></div>
-                <Play size={24} fill="currentColor" />
-                <span className="text-xl tracking-widest">出击 START</span>
-              </button>
-
-              <button 
-                onClick={() => setShowHelp(true)}
-                className="w-full bg-gray-800/80 hover:bg-gray-700 text-gray-300 font-bold py-3 px-6 rounded-lg border border-gray-700 transition-all flex items-center justify-center gap-2"
-              >
-                <Info size={20} />
-                <span>作战说明 INSTRUCTIONS</span>
-              </button>
+          <div className="flex flex-col gap-3">
+              <button onClick={onStart} className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 rounded flex justify-center gap-2 items-center"><Play size={20} /> 出击 START</button>
+              <button onClick={() => setShowLeaderboard(true)} className="w-full bg-gray-800 text-gray-300 py-3 rounded flex justify-center gap-2 items-center"><Trophy size={20} /> 排行榜 RANK</button>
+              <button onClick={() => setShowHelp(true)} className="w-full bg-gray-800 text-gray-300 py-3 rounded flex justify-center gap-2 items-center"><Info size={20} /> 说明 HELP</button>
           </div>
         </div>
       </div>
@@ -230,87 +274,87 @@ const UI: React.FC<UIProps> = ({
 
   if (gameState === GameState.GAME_OVER || gameState === GameState.VICTORY) {
     return (
-      <div className="absolute inset-0 flex items-center justify-center bg-black/85 z-50 backdrop-blur-sm animate-in fade-in duration-500">
-        <div className="text-center p-6 border border-gray-800 bg-black/50 rounded-xl min-w-[300px]">
-          {gameState === GameState.VICTORY ? (
-             <Trophy className="w-20 h-20 text-yellow-400 mx-auto mb-4 animate-bounce" />
-          ) : (
-             <Skull className="w-20 h-20 text-red-500 mx-auto mb-4 animate-pulse" />
-          )}
-          <h2 className={`text-5xl font-black mb-4 ${gameState === GameState.VICTORY ? 'text-yellow-400' : 'text-red-500 tracking-widest'}`}>
-            {gameState === GameState.VICTORY ? '任务完成' : '游戏结束'}
-          </h2>
-          
-          <div className="bg-gray-900/80 rounded p-4 mb-8 border border-gray-700">
-             <p className="text-gray-400 text-sm font-mono mb-1">最终得分 SCORE</p>
-             <p className="text-white text-3xl font-mono font-bold tracking-widest">{score.toLocaleString()}</p>
-          </div>
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 z-50 backdrop-blur-md animate-in fade-in">
+        <div className="w-full max-w-md p-6">
+            <div className="text-center mb-8">
+                {gameState === GameState.VICTORY ? <Trophy className="w-16 h-16 text-yellow-400 mx-auto mb-2" /> : <Skull className="w-16 h-16 text-red-500 mx-auto mb-2" />}
+                <h2 className="text-4xl font-black text-white tracking-widest">{gameState === GameState.VICTORY ? '任务完成' : '游戏结束'}</h2>
+                <div className="mt-4 bg-gray-900 border border-gray-700 p-4 rounded">
+                    <div className="text-xs text-gray-500">最终得分 FINAL SCORE</div>
+                    <div className="text-4xl font-mono text-blue-400 font-bold">{score.toLocaleString()}</div>
+                </div>
+            </div>
 
-          <button 
-            onClick={onRestart}
-            className="flex items-center gap-2 mx-auto px-8 py-3 bg-white hover:bg-gray-200 text-black font-bold rounded text-xl transition-all hover:scale-105"
-          >
-            <RotateCcw size={20} /> 重新开始
-          </button>
+            {/* Score Submission */}
+            {!hasSubmitted ? (
+                <div className="mb-6 bg-gray-800 p-4 rounded border border-gray-700">
+                    <p className="text-gray-400 text-sm mb-2 flex justify-between">
+                        <span>输入机师代号上榜 Enter Name:</span>
+                        {isOnline && <span className="text-green-400 text-xs flex items-center gap-1"><Globe size={10} /> ONLINE</span>}
+                    </p>
+                    <div className="flex gap-2">
+                        <input 
+                            type="text" 
+                            maxLength={10}
+                            value={playerName}
+                            onChange={(e) => setPlayerName(e.target.value)}
+                            className="bg-black border border-gray-600 text-white px-3 py-2 rounded flex-1 uppercase font-mono tracking-widest focus:border-blue-500 outline-none"
+                            placeholder="AAA"
+                        />
+                        <button 
+                            onClick={saveScore}
+                            disabled={!playerName || isLoading}
+                            className="bg-green-600 hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded font-bold flex items-center gap-2"
+                        >
+                            {isLoading ? <Loader2 className="animate-spin w-4 h-4" /> : '提交'}
+                        </button>
+                    </div>
+                </div>
+            ) : (
+                <div className="mb-6 h-64 overflow-hidden relative rounded border border-gray-800">
+                    <LeaderboardView />
+                </div>
+            )}
+
+            <div className="flex justify-center">
+                <button onClick={onRestart} className="flex items-center gap-2 px-8 py-3 bg-white hover:bg-gray-200 text-black font-bold rounded text-lg">
+                    <RotateCcw size={20} /> {hasSubmitted ? '再次出击' : '跳过并重来'}
+                </button>
+            </div>
         </div>
       </div>
     );
   }
 
-  // Playing HUD
+  // HUD
   return (
     <div className="absolute inset-0 pointer-events-none p-4 flex flex-col justify-between">
-      {/* Top Bar */}
       <div className="flex justify-between items-start">
-        <div className="bg-gray-900/80 border border-blue-500/30 p-2 rounded backdrop-blur-md min-w-[120px]">
-           <div className="text-xs text-blue-400 font-bold">SCORE</div>
-           <div className="text-2xl text-white font-mono font-bold tracking-widest leading-none shadow-black drop-shadow-md">
-             {score.toString().padStart(8, '0')}
-           </div>
+        <div className="bg-gray-900/80 border border-blue-500/30 p-2 rounded backdrop-blur-md">
+           <div className="text-xs text-blue-400 font-bold">得分 SCORE</div>
+           <div className="text-2xl text-white font-mono font-bold">{score.toString().padStart(8, '0')}</div>
         </div>
-
-        <div className="flex gap-2">
+        <div className="flex gap-1">
            {Array.from({ length: playerStats.bombs }).map((_, i) => (
-             <div key={i} className="bg-red-900/50 border border-red-500 p-1 rounded animate-pulse shadow-[0_0_10px_rgba(239,68,68,0.5)]">
-               <Bomb className="text-red-400 w-6 h-6" />
-             </div>
+             <Bomb key={i} className="text-red-500 w-6 h-6 animate-pulse" fill="currentColor" />
            ))}
         </div>
       </div>
 
-      {/* Bottom Bar - Widened for longer health bar */}
-      <div className="w-full px-2 mx-auto relative">
-          <div className="flex items-end justify-between gap-4 bg-black/40 p-2 rounded-xl backdrop-blur-sm border border-white/5">
-            {/* Weapon Status */}
-            <div className="flex flex-col items-center bg-gray-900/80 p-2 rounded border border-gray-700 backdrop-blur-md min-w-[80px]">
-                <div className={`mb-1 ${getWeaponColor(playerStats.weaponType).split(' ')[0]}`}>
-                  {getWeaponIcon(playerStats.weaponType)}
-                </div>
-                <div className="text-[10px] font-bold text-gray-400">
-                  {playerStats.weaponType === WeaponType.VULCAN ? 'VULCAN' : playerStats.weaponType === WeaponType.LASER ? 'LASER' : 'PLASMA'}
-                </div>
-                <div className="text-xs font-mono text-yellow-400">LV.{playerStats.weaponLevel}</div>
+      <div className="w-full flex items-end justify-between gap-4 bg-black/40 p-2 rounded-xl backdrop-blur-sm border border-white/5">
+        <div className="flex flex-col items-center bg-gray-900/80 p-2 rounded border border-gray-700 min-w-[70px]">
+            <div className={`mb-1 ${getWeaponColor(playerStats.weaponType).split(' ')[0]}`}>{getWeaponIcon(playerStats.weaponType)}</div>
+            <div className="text-xs font-mono text-yellow-400">LV.{playerStats.weaponLevel}</div>
+        </div>
+        <div className="flex-1 pb-1">
+            <div className="flex items-center gap-2 mb-1 justify-end">
+                <div className="text-xs text-green-400 font-bold">护盾 SHIELD</div>
+                <Activity className="w-4 h-4 text-green-400" />
             </div>
-
-            {/* Health Bar - Made taller and flex-grow */}
-            <div className="flex-1 pb-1">
-                <div className="flex items-center gap-2 mb-1 justify-end">
-                    <div className="text-xs text-green-400 font-bold tracking-wider">SHIELD ENERGY</div>
-                    <Activity className="w-4 h-4 text-green-400" />
-                </div>
-                <div className="h-6 bg-gray-800/80 rounded-sm overflow-hidden border border-gray-600 relative shadow-[0_0_15px_rgba(34,197,94,0.2)]">
-                    {/* Background Grid in Health Bar */}
-                    <div className="absolute inset-0 opacity-20 bg-[linear-gradient(90deg,transparent_0%,transparent_95%,#000_100%)] bg-[size:10px_100%]"></div>
-                    
-                    <div 
-                      className={`h-full transition-all duration-200 ease-out ${playerStats.hp < 30 ? 'bg-red-500 animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.6)]' : 'bg-gradient-to-r from-green-700 via-green-500 to-green-400'}`}
-                      style={{ width: `${(playerStats.hp / playerStats.maxHp) * 100}%` }}
-                    />
-                    {/* Shine effect */}
-                    <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.1)_0%,transparent_50%,rgba(0,0,0,0.1)_100%)]" />
-                </div>
+            <div className="h-6 bg-gray-800 rounded-sm overflow-hidden border border-gray-600 relative">
+                <div className={`h-full transition-all duration-200 ${playerStats.hp < 30 ? 'bg-red-500 animate-pulse' : 'bg-gradient-to-r from-green-700 to-green-400'}`} style={{ width: `${(playerStats.hp / playerStats.maxHp) * 100}%` }} />
             </div>
-          </div>
+        </div>
       </div>
     </div>
   );

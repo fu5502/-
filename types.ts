@@ -34,6 +34,7 @@ export interface Player extends Entity {
   weaponLevel: number;
   bombs: number;
   invulnerableTimer: number;
+  lastHitFrame: number; // For regeneration logic
 }
 
 export interface Enemy extends Entity {
@@ -49,7 +50,7 @@ export interface Bullet extends Entity {
   owner: 'player' | 'enemy';
   damage: number;
   angle?: number;
-  behavior?: 'normal' | 'homing' | 'beam';
+  behavior?: 'normal' | 'homing' | 'beam' | 'mine' | 'backfire'; // Added mine/backfire for variety
 }
 
 export interface Particle extends Entity {
@@ -60,6 +61,13 @@ export interface Particle extends Entity {
 
 export interface PowerUp extends Entity {
   type: 'P_RED' | 'P_BLUE' | 'P_PURPLE' | 'P_UPGRADE' | 'BOMB' | 'HEALTH';
+}
+
+export interface LeaderboardEntry {
+  id?: number;
+  name: string;
+  score: number;
+  date: string;
 }
 
 export interface GameContextData {

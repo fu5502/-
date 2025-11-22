@@ -11,6 +11,10 @@ export const BULLET_SPEED_ENEMY = 4;
 export const ENEMY_SPAWN_RATE_INITIAL = 60; // Frames
 export const BOSS_SCORE_THRESHOLD = 2000;
 
+export const REGEN_DELAY_FRAMES = 300; // 5 seconds at 60fps
+export const SPAWN_INVULNERABILITY_FRAMES = 240; // 4 seconds
+export const MAX_WEAPON_LEVEL = 8;
+
 export const COLORS = {
   PLAYER: '#3b82f6', // Blue-500
   PLAYER_BULLET: '#60a5fa',
@@ -30,10 +34,10 @@ export const COLORS = {
 };
 
 export const KEYS = {
-  UP: ['ArrowUp', 'w', 'W'],
-  DOWN: ['ArrowDown', 's', 'S'],
-  LEFT: ['ArrowLeft', 'a', 'A'],
-  RIGHT: ['ArrowRight', 'd', 'D'],
-  SHOOT: [' '], // Space
-  BOMB: ['b', 'B', 'Shift'],
+  UP: ['ArrowUp', 'KeyW'],
+  DOWN: ['ArrowDown', 'KeyS'],
+  LEFT: ['ArrowLeft', 'KeyA'],
+  RIGHT: ['ArrowRight', 'KeyD'],
+  SHOOT: ['Space'], 
+  BOMB: ['KeyB', 'ShiftLeft', 'ShiftRight'],
 };
