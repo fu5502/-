@@ -593,19 +593,20 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   };
 
   const spawnPowerUp = (state: any, x: number, y: number) => {
-    if (Math.random() > 0.20) return; 
+    if (Math.random() > 0.25) return; // Increased from 0.20
     const r = Math.random();
     let type: PowerUp['type'] = 'SCORE_SILVER';
     
-    if (r < 0.25) type = 'SCORE_SILVER';
-    else if (r < 0.45) type = 'SCORE_GOLD';
-    else if (r < 0.55) type = 'P_RED';
-    else if (r < 0.65) type = 'P_BLUE';
-    else if (r < 0.75) type = 'P_PURPLE';
-    else if (r < 0.82) type = 'P_UPGRADE'; 
-    else if (r < 0.85) type = 'BOMB';      
-    else if (r < 0.87) type = 'HEALTH';    
-    else if (r < 0.89) type = 'INVINCIBILITY'; 
+    // Adjusted distributions to favor Ammo (P_RED/BLUE/PURPLE) more
+    if (r < 0.20) type = 'SCORE_SILVER';
+    else if (r < 0.35) type = 'SCORE_GOLD';
+    else if (r < 0.50) type = 'P_RED';    // Increased
+    else if (r < 0.65) type = 'P_BLUE';   // Increased
+    else if (r < 0.80) type = 'P_PURPLE'; // Increased
+    else if (r < 0.85) type = 'P_UPGRADE'; 
+    else if (r < 0.88) type = 'BOMB';      
+    else if (r < 0.92) type = 'HEALTH';    
+    else if (r < 0.94) type = 'INVINCIBILITY'; 
     else return;
 
     state.powerUps.push({
@@ -721,8 +722,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     // Regen Logic
     if (state.frame - player.lastHitFrame > REGEN_DELAY_FRAMES && player.hp < player.maxHp && player.hp > 0) {
-        if (state.frame % 60 === 0) {  // Faster regen (1HP per sec)
-            player.hp = Math.min(player.maxHp, player.hp + 1);
+        // 2 seconds = 120 frames. Recover 0.8 HP per 2 seconds.
+        if (state.frame % 120 === 0) {  
+            player.hp = Math.min(player.maxHp, player.hp + 0.8);
             // Regen visual effect
             state.particles.push({
                 id: 'regen_'+Math.random(),
