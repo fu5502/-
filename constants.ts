@@ -1,5 +1,5 @@
 
-export const GAME_VERSION = "v1.1.5 (Build 2025.11.24)";
+export const GAME_VERSION = "v1.1.6 (Build 2025.11.24)";
 
 export const CANVAS_WIDTH = 600;
 export const CANVAS_HEIGHT = 800;
