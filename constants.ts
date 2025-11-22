@@ -1,5 +1,5 @@
 
-export const GAME_VERSION = "v1.1.0 (Build 2024.03)";
+export const GAME_VERSION = "v1.1.1 (Build 2025.11.23)";
 
 export const CANVAS_WIDTH = 600;
 export const CANVAS_HEIGHT = 800;
@@ -45,6 +45,6 @@ export const KEYS = {
   DOWN: ['ArrowDown', 'KeyS'],
   LEFT: ['ArrowLeft', 'KeyA'],
   RIGHT: ['ArrowRight', 'KeyD'],
-  SHOOT: ['Space'], 
-  BOMB: ['KeyB', 'ShiftLeft', 'ShiftRight'],
+  SHOOT: [], // Auto-fire default, Space moved to Bomb
+  BOMB: ['KeyB', 'Space', 'ShiftLeft', 'ShiftRight'], // Added Space
 };

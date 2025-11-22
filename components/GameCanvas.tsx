@@ -435,9 +435,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
         if (KEYS.UP.includes(e.code) || KEYS.DOWN.includes(e.code) || 
-            KEYS.LEFT.includes(e.code) || KEYS.RIGHT.includes(e.code) || 
-            e.code === 'Space') {
+            KEYS.LEFT.includes(e.code) || KEYS.RIGHT.includes(e.code)) {
              // e.preventDefault(); 
+        }
+        
+        if (e.code === 'Space') {
+            // e.preventDefault(); // Prevent scrolling with space if needed, though css overflow:hidden handles most
         }
         
         stateRef.current.keys.add(e.code);
@@ -712,7 +715,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     // Regen Logic
     if (state.frame - player.lastHitFrame > REGEN_DELAY_FRAMES && player.hp < player.maxHp && player.hp > 0) {
-        if (state.frame % 45 === 0) { 
+        if (state.frame % 120 === 0) { 
             player.hp = Math.min(player.maxHp, player.hp + 1);
         }
     }
