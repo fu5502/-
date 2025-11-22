@@ -11,7 +11,7 @@ export const BULLET_SPEED_ENEMY = 4;
 export const ENEMY_SPAWN_RATE_INITIAL = 60; // Frames
 export const BOSS_SCORE_THRESHOLD = 2000;
 
-export const REGEN_DELAY_FRAMES = 300; // 5 seconds at 60fps
+export const REGEN_DELAY_FRAMES = 600; // 10 seconds at 60fps
 export const SPAWN_INVULNERABILITY_FRAMES = 240; // 4 seconds
 export const MAX_WEAPON_LEVEL = 8;
 
@@ -29,8 +29,12 @@ export const COLORS = {
   POWERUP_BLUE: '#3b82f6',
   POWERUP_PURPLE: '#a855f7', // Purple-500
   POWERUP_GENERIC: '#facc15', // Yellow
+  POWERUP_INVINCIBILITY: '#22d3ee', // Cyan-400
   BOMB: '#f59e0b', // Amber
   STAR: '#ffffff',
+  SCORE_GOLD: '#fbbf24', // Gold
+  SCORE_SILVER: '#94a3b8', // Silver
+  SHOCKWAVE: '#ffffff'
 };
 
 export const KEYS = {

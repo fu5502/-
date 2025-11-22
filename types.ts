@@ -57,10 +57,11 @@ export interface Particle extends Entity {
   life: number;
   maxLife: number;
   scale: number;
+  type?: 'particle' | 'shockwave';
 }
 
 export interface PowerUp extends Entity {
-  type: 'P_RED' | 'P_BLUE' | 'P_PURPLE' | 'P_UPGRADE' | 'BOMB' | 'HEALTH';
+  type: 'P_RED' | 'P_BLUE' | 'P_PURPLE' | 'P_UPGRADE' | 'BOMB' | 'HEALTH' | 'SCORE_GOLD' | 'SCORE_SILVER' | 'INVINCIBILITY';
 }
 
 export interface LeaderboardEntry {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { GameState, WeaponType, LeaderboardEntry } from '../types';
-import { Activity, Bomb, Trophy, Skull, RotateCcw, Crosshair, Zap, CircleDashed, ChevronRight, ChevronLeft, Play, Info, X, Keyboard, Loader2, Globe, WifiOff } from 'lucide-react';
+import { Activity, Bomb, Trophy, Skull, RotateCcw, Crosshair, Zap, CircleDashed, ChevronRight, ChevronLeft, Play, Info, X, Keyboard, Loader2, Globe, WifiOff, Shield } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 
 interface UIProps {
@@ -239,10 +239,11 @@ const UI: React.FC<UIProps> = ({
                 <div className="space-y-4 text-gray-300 text-sm leading-relaxed">
                     <p className="flex items-center gap-2"><Keyboard size={16} /> <strong>移动操作：</strong>使用 WASD 或 方向键 移动战机。</p>
                     <p className="flex items-center gap-2"><Zap size={16} /> <strong>攻击模式：</strong>战机自动开火。按 SPACE 空格键也可射击。</p>
-                    <p className="flex items-center gap-2"><Bomb size={16} /> <strong>护身炸弹：</strong>按 B 键或 Shift 键释放全屏炸弹，清除敌机与弹幕。</p>
+                    <p className="flex items-center gap-2"><Bomb size={16} /> <strong>护身炸弹：</strong>按 B 键或 Shift 键释放全屏炸弹，清除敌机与弹幕 [ B / SHIFT ]。</p>
                     <div className="h-px bg-gray-700 my-2"></div>
+                    <p className="flex items-center gap-2 text-cyan-400"><Shield size={16} /> <strong>无敌护盾：</strong>拾取 [S] 道具可获得 5秒 无敌时间。</p>
                     <p><strong>武器升级：</strong>拾取与当前武器同色的 [P] 道具可提升威力，最高 LV.8！拾取异色道具可切换武器类型。</p>
-                    <p><strong>纳米修复：</strong>若5秒内未受到任何伤害，战机护盾将缓慢自动充能。</p>
+                    <p><strong>纳米修复：</strong>若10秒内未受到任何伤害，战机护盾将缓慢自动充能。</p>
                 </div>
             </div>
         )}
@@ -349,7 +350,8 @@ const UI: React.FC<UIProps> = ({
         <div className="flex-1 pb-1">
             <div className="flex items-center gap-2 mb-1 justify-end">
                 <div className="text-xs text-green-400 font-bold">护盾 SHIELD</div>
-                <Activity className="w-4 h-4 text-green-400" />
+                <div className="text-xs text-gray-400 ml-2"> [B / SHIFT]</div>
+                <Activity className="w-4 h-4 text-green-400 ml-auto" />
             </div>
             <div className="h-6 bg-gray-800 rounded-sm overflow-hidden border border-gray-600 relative">
                 <div className={`h-full transition-all duration-200 ${playerStats.hp < 30 ? 'bg-red-500 animate-pulse' : 'bg-gradient-to-r from-green-700 to-green-400'}`} style={{ width: `${(playerStats.hp / playerStats.maxHp) * 100}%` }} />

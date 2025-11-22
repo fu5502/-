@@ -281,7 +281,7 @@ let bgmSequencer: MusicSequencer | null = null;
 
 
 // --- SFX System ---
-const playSound = (type: 'shoot' | 'explode' | 'powerup' | 'laser' | 'bomb') => {
+const playSound = (type: 'shoot' | 'explode' | 'powerup' | 'laser' | 'bomb' | 'coin' | 'invincible') => {
   try {
     const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
     if (!AudioContext) return;
@@ -329,6 +329,25 @@ const playSound = (type: 'shoot' | 'explode' | 'powerup' | 'laser' | 'bomb') => 
         osc.frequency.linearRampToValueAtTime(1000, now + 0.2);
         gain.gain.setValueAtTime(0.1, now);
         gain.gain.linearRampToValueAtTime(0, now + 0.2);
+        osc.start(now);
+        osc.stop(now + 0.2);
+        break;
+      case 'invincible':
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(600, now);
+        osc.frequency.linearRampToValueAtTime(1200, now + 0.1);
+        osc.frequency.linearRampToValueAtTime(600, now + 0.2);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.linearRampToValueAtTime(0, now + 0.5);
+        osc.start(now);
+        osc.stop(now + 0.5);
+        break;
+      case 'coin':
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(1200, now);
+        osc.frequency.setValueAtTime(1800, now + 0.05);
+        gain.gain.setValueAtTime(0.1, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
         osc.start(now);
         osc.stop(now + 0.2);
         break;
@@ -414,7 +433,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
        state.bullets = state.bullets.filter(b => b.owner === 'player');
        state.enemies.forEach(e => {
          e.hp -= 200;
-         createExplosion(state, e.pos.x, e.pos.y, 30, '#f59e0b');
+         createExplosion(state, e.pos.x, e.pos.y, 30, COLORS.BOMB);
        });
        state.particles.push({
          id: 'bomb_flash',
@@ -536,6 +555,21 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   // --- Game Loop Helpers ---
 
   const createExplosion = (state: any, x: number, y: number, count: number, color: string) => {
+    // Initial Flash Shockwave
+    if (count > 5) {
+       state.particles.push({
+           id: 'shockwave_'+Math.random(),
+           pos: {x, y},
+           vel: {x:0, y:0},
+           life: 1.0,
+           maxLife: 1.0,
+           scale: 1, // will grow
+           color: COLORS.SHOCKWAVE,
+           markedForDeletion: false,
+           type: 'shockwave'
+       });
+    }
+
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = Math.random() * 5 + 2;
@@ -547,22 +581,28 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         maxLife: 1.0,
         scale: Math.random() * 4 + 2,
         color: color,
-        markedForDeletion: false
+        markedForDeletion: false,
+        type: 'particle'
       });
     }
   };
 
   const spawnPowerUp = (state: any, x: number, y: number) => {
-    if (Math.random() > 0.35) return;
+    if (Math.random() > 0.20) return; // Reduced spawn rate (was 0.35)
     const r = Math.random();
     let type: PowerUp['type'] = 'P_RED';
     
-    if (r < 0.20) type = 'P_RED';
-    else if (r < 0.40) type = 'P_BLUE';
-    else if (r < 0.55) type = 'P_PURPLE';
-    else if (r < 0.75) type = 'P_UPGRADE';
-    else if (r < 0.90) type = 'HEALTH';
-    else type = 'BOMB';
+    // PowerUp Distribution
+    if (r < 0.15) type = 'P_RED';
+    else if (r < 0.30) type = 'P_BLUE';
+    else if (r < 0.40) type = 'P_PURPLE';
+    else if (r < 0.55) type = 'P_UPGRADE';
+    else if (r < 0.65) type = 'SCORE_GOLD'; // 10%
+    else if (r < 0.75) type = 'SCORE_SILVER'; // 10%
+    else if (r < 0.77) type = 'HEALTH'; // RARE: 2%
+    else if (r < 0.80) type = 'BOMB'; // RARE: 3%
+    else if (r < 0.82) type = 'INVINCIBILITY'; // VERY RARE: 2%
+    else return; // Nothing
 
     state.powerUps.push({
       id: Math.random().toString(),
@@ -625,7 +665,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     state.player.hp = 100;
     state.player.bombs = 2;
     state.player.pos = { x: CANVAS_WIDTH / 2, y: CANVAS_HEIGHT - 100 };
-    state.player.weaponLevel = 1;
+    state.player.weaponLevel = 1; // Reset Level
     state.player.weaponType = startingWeapon;
     // STARTING INVULNERABILITY
     state.player.invulnerableTimer = SPAWN_INVULNERABILITY_FRAMES; 
@@ -674,9 +714,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     // --- Passive Health Regeneration ---
-    // If not hit for 5 seconds (REGEN_DELAY_FRAMES)
+    // If not hit for 10 seconds (REGEN_DELAY_FRAMES)
     if (state.frame - player.lastHitFrame > REGEN_DELAY_FRAMES && player.hp < player.maxHp && player.hp > 0) {
-        if (state.frame % 10 === 0) { // Slow tick
+        if (state.frame % 45 === 0) { // Very Slow tick (approx 0.75s per 1HP)
             player.hp = Math.min(player.maxHp, player.hp + 1);
         }
     }
@@ -923,19 +963,35 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         const dist = Math.hypot(p.pos.x - player.pos.x, p.pos.y - player.pos.y);
         if (dist < 100) { p.pos.x += (player.pos.x - p.pos.x) * 0.05; p.pos.y += (player.pos.y - p.pos.y) * 0.05; }
         if (dist < p.width + player.width/2) {
-            playSound('powerup');
             p.markedForDeletion = true;
-            state.score += 100;
-            if (p.type === 'HEALTH') player.hp = Math.min(player.hp + 30, player.maxHp);
-            else if (p.type === 'BOMB') player.bombs++;
-            else if (p.type === 'P_UPGRADE') player.weaponLevel = Math.min(player.weaponLevel + 1, MAX_WEAPON_LEVEL);
-            else {
-                if ((p.type === 'P_RED' && player.weaponType !== WeaponType.VULCAN) ||
-                    (p.type === 'P_BLUE' && player.weaponType !== WeaponType.LASER) ||
-                    (p.type === 'P_PURPLE' && player.weaponType !== WeaponType.PLASMA)) {
-                        player.weaponType = p.type === 'P_RED' ? WeaponType.VULCAN : p.type === 'P_BLUE' ? WeaponType.LASER : WeaponType.PLASMA;
-                } else {
-                    player.weaponLevel = Math.min(player.weaponLevel + 1, MAX_WEAPON_LEVEL);
+            
+            if (p.type === 'SCORE_GOLD') {
+                state.score += 500;
+                playSound('coin');
+            } else if (p.type === 'SCORE_SILVER') {
+                state.score += 1000;
+                playSound('coin');
+            } else if (p.type === 'INVINCIBILITY') {
+                playSound('invincible');
+                player.invulnerableTimer = 300; // 5 Seconds (300 frames)
+                player.lastHitFrame = 0; // Don't interrupt regen? or should we?
+                state.score += 500;
+                // Add a visual flash
+                createExplosion(state, player.pos.x, player.pos.y, 10, COLORS.POWERUP_INVINCIBILITY);
+            } else {
+                playSound('powerup');
+                state.score += 100;
+                if (p.type === 'HEALTH') player.hp = Math.min(player.hp + 30, player.maxHp);
+                else if (p.type === 'BOMB') player.bombs++;
+                else if (p.type === 'P_UPGRADE') player.weaponLevel = Math.min(player.weaponLevel + 1, MAX_WEAPON_LEVEL);
+                else {
+                    if ((p.type === 'P_RED' && player.weaponType !== WeaponType.VULCAN) ||
+                        (p.type === 'P_BLUE' && player.weaponType !== WeaponType.LASER) ||
+                        (p.type === 'P_PURPLE' && player.weaponType !== WeaponType.PLASMA)) {
+                            player.weaponType = p.type === 'P_RED' ? WeaponType.VULCAN : p.type === 'P_BLUE' ? WeaponType.LASER : WeaponType.PLASMA;
+                    } else {
+                        player.weaponLevel = Math.min(player.weaponLevel + 1, MAX_WEAPON_LEVEL);
+                    }
                 }
             }
         }
@@ -944,9 +1000,14 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     // --- Particle Updates (Fixes white screen bug) ---
     state.particles.forEach(p => {
-        p.life -= 0.02; // Decay
-        p.pos.x += p.vel.x;
-        p.pos.y += p.vel.y;
+        if (p.type === 'shockwave') {
+            p.scale += 5;
+            p.life -= 0.04;
+        } else {
+            p.life -= 0.02; // Decay
+            p.pos.x += p.vel.x;
+            p.pos.y += p.vel.y;
+        }
         if (p.life <= 0) p.markedForDeletion = true;
     });
 
@@ -1050,13 +1111,39 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     // Entities...
     state.powerUps.forEach(p => {
-        ctx.shadowBlur = 15; ctx.shadowColor = p.color; ctx.fillStyle = '#222';
-        ctx.beginPath(); ctx.arc(p.pos.x, p.pos.y, 14, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = p.type.includes('RED')?COLORS.POWERUP_RED:p.type.includes('BLUE')?COLORS.POWERUP_BLUE:p.type.includes('PURPLE')?COLORS.POWERUP_PURPLE:p.type.includes('BOMB')?COLORS.BOMB:'#22c55e';
-        ctx.lineWidth = 3; ctx.stroke();
-        ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(p.type === 'P_UPGRADE' ? 'UP' : p.type[0].replace('P_',''), p.pos.x, p.pos.y);
-        ctx.shadowBlur = 0;
+        if (p.type === 'SCORE_GOLD' || p.type === 'SCORE_SILVER') {
+             // Render Gold/Silver Bars
+             ctx.save(); ctx.translate(p.pos.x, p.pos.y); ctx.rotate(state.frame * 0.1);
+             ctx.shadowBlur = 15; ctx.shadowColor = p.type === 'SCORE_GOLD' ? COLORS.SCORE_GOLD : COLORS.SCORE_SILVER;
+             ctx.fillStyle = p.type === 'SCORE_GOLD' ? COLORS.SCORE_GOLD : COLORS.SCORE_SILVER;
+             ctx.fillRect(-12, -8, 24, 16);
+             ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.5; ctx.fillRect(-8, -4, 4, 12); ctx.globalAlpha = 1.0; // Shine
+             ctx.restore();
+        } else if (p.type === 'INVINCIBILITY') {
+             // Render Shield Item
+             ctx.save(); ctx.translate(p.pos.x, p.pos.y);
+             ctx.shadowBlur = 20; ctx.shadowColor = COLORS.POWERUP_INVINCIBILITY;
+             ctx.fillStyle = '#222';
+             ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.fill();
+             ctx.strokeStyle = COLORS.POWERUP_INVINCIBILITY; ctx.lineWidth = 3; ctx.stroke();
+             
+             ctx.fillStyle = '#fff'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+             ctx.fillText('S', 0, 0); // S for Shield
+             
+             // Pulse ring
+             ctx.beginPath(); ctx.arc(0, 0, 18 + Math.sin(state.frame * 0.2) * 2, 0, Math.PI*2); 
+             ctx.strokeStyle = `rgba(34, 211, 238, ${0.5 + Math.sin(state.frame * 0.2)*0.3})`;
+             ctx.stroke();
+             ctx.restore();
+        } else {
+            ctx.shadowBlur = 15; ctx.shadowColor = p.color; ctx.fillStyle = '#222';
+            ctx.beginPath(); ctx.arc(p.pos.x, p.pos.y, 14, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = p.type.includes('RED')?COLORS.POWERUP_RED:p.type.includes('BLUE')?COLORS.POWERUP_BLUE:p.type.includes('PURPLE')?COLORS.POWERUP_PURPLE:p.type.includes('BOMB')?COLORS.BOMB:'#22c55e';
+            ctx.lineWidth = 3; ctx.stroke();
+            ctx.fillStyle = '#fff'; ctx.font = 'bold 12px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(p.type === 'P_UPGRADE' ? 'UP' : p.type[0].replace('P_',''), p.pos.x, p.pos.y);
+            ctx.shadowBlur = 0;
+        }
     });
 
     state.bullets.forEach(b => {
@@ -1067,6 +1154,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                  ctx.shadowBlur = 15;
                  ctx.fillStyle = COLORS.PLAYER_PLASMA;
                  ctx.beginPath(); ctx.arc(0, 0, b.behavior === 'mine' ? 9 : 7, 0, Math.PI*2); ctx.fill();
+                 // Outer rings
+                 ctx.strokeStyle = COLORS.PLAYER_PLASMA; ctx.lineWidth = 1;
+                 ctx.beginPath(); ctx.arc(0, 0, 10 + Math.sin(state.frame*0.5)*2, 0, Math.PI*2); ctx.stroke();
              } else if (b.behavior === 'beam') {
                 ctx.fillRect(-b.height/2, -b.width/2, b.height, b.width);
              } else {
@@ -1081,10 +1171,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     });
 
     // Player (Blink if invulnerable)
-    if (Math.floor(player.invulnerableTimer / 4) % 2 === 0) {
+    // Only blink if standard invulnerability (short duration). If Long duration (Item), draw shield.
+    const isShieldActive = player.invulnerableTimer > 60; 
+    
+    if (isShieldActive || Math.floor(player.invulnerableTimer / 4) % 2 === 0) {
         ctx.save(); ctx.translate(player.pos.x, player.pos.y);
         ctx.fillStyle = player.color;
+        
+        // Shadow on ground
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(0, 40, 20, 10, 0, 0, Math.PI*2); ctx.fill();
+
         // Detailed Ship
+        ctx.fillStyle = player.color;
         ctx.beginPath(); 
         ctx.moveTo(0, -25); 
         ctx.lineTo(8, -10); ctx.lineTo(15, 20); ctx.lineTo(0, 15); ctx.lineTo(-15, 20); ctx.lineTo(-8, -10); 
@@ -1093,6 +1191,20 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.fillStyle = '#94a3b8';
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(25, 15); ctx.lineTo(25, 25); ctx.lineTo(5, 20); ctx.fill();
         ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(-25, 15); ctx.lineTo(-25, 25); ctx.lineTo(-5, 20); ctx.fill();
+
+        // Invincibility Shield Effect
+        if (isShieldActive) {
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = COLORS.POWERUP_INVINCIBILITY;
+            ctx.strokeStyle = COLORS.POWERUP_INVINCIBILITY;
+            ctx.lineWidth = 3;
+            ctx.globalAlpha = 0.6 + Math.sin(state.frame * 0.2) * 0.3;
+            ctx.beginPath(); ctx.arc(0, 0, 40, 0, Math.PI * 2); ctx.stroke();
+            ctx.globalAlpha = 0.2;
+            ctx.fillStyle = COLORS.POWERUP_INVINCIBILITY;
+            ctx.fill();
+            ctx.globalAlpha = 1.0;
+        }
 
         // Shield regen effect
         if (state.frame - player.lastHitFrame > REGEN_DELAY_FRAMES && player.hp < player.maxHp) {
@@ -1107,6 +1219,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.fillStyle = e.color;
         ctx.shadowColor = e.color;
         
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(0, 40, e.width/2, e.height/4, 0, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = e.color;
+
         // Detailed Enemy Shapes
         if (e.type === 'boss') {
             ctx.shadowBlur = 10;
@@ -1150,6 +1266,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         if (p.id === 'bomb_flash') { 
             ctx.fillStyle = '#fff'; 
             ctx.fillRect(0,0, CANVAS_WIDTH, CANVAS_HEIGHT); 
+        } else if (p.type === 'shockwave') {
+            ctx.strokeStyle = p.color;
+            ctx.lineWidth = 4;
+            ctx.beginPath(); ctx.arc(p.pos.x, p.pos.y, p.scale, 0, Math.PI*2); ctx.stroke();
         } else { 
             ctx.fillStyle = p.color; 
             ctx.beginPath(); ctx.arc(p.pos.x, p.pos.y, p.scale, 0, Math.PI*2); ctx.fill(); 
