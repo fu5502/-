@@ -36,6 +36,8 @@ export interface Player extends Entity {
   bombs: number;
   invulnerableTimer: number;
   lastHitFrame: number; // For regeneration logic
+  hyperModeTimer: number; // New: Duration of rapid fire mode
+  weaponVariant: number;  // New: Slight variation in bullet spread
 }
 
 export interface Enemy extends Entity {

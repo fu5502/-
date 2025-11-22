@@ -358,7 +358,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       bombs: 2,
       invulnerableTimer: 0,
       lastHitFrame: 0,
-      markedForDeletion: false
+      markedForDeletion: false,
+      hyperModeTimer: 0,
+      weaponVariant: 0
     } as Player,
     bullets: [] as Bullet[],
     enemies: [] as Enemy[],
@@ -626,23 +628,24 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     let damage = 10;
 
     if (isPlayer) {
+        const isHyper = state.player.hyperModeTimer > 0;
         if (state.player.weaponType === WeaponType.LASER) {
             width = 14;
             height = 45;
-            color = '#60a5fa';
+            color = isHyper ? '#ffffff' : '#60a5fa';
             damage = 7; 
         } else if (state.player.weaponType === WeaponType.PLASMA) {
             width = 18;
             height = 18;
-            color = COLORS.PLAYER_PLASMA;
+            color = isHyper ? '#f0abfc' : COLORS.PLAYER_PLASMA;
             damage = 16;
         } else {
             width = 16;
             height = 26;
-            color = '#f87171';
+            color = isHyper ? '#fecaca' : '#f87171';
             damage = 12;
         }
-        damage = Math.max(1, damage * damageScale);
+        damage = Math.max(1, damage * damageScale * (isHyper ? 1.2 : 1.0));
     } else {
         damage = 10 + (state.level * 2);
     }
@@ -671,6 +674,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     state.player.weaponType = startingWeapon;
     state.player.invulnerableTimer = SPAWN_INVULNERABILITY_FRAMES; 
     state.player.lastHitFrame = 0;
+    state.player.hyperModeTimer = 0;
+    state.player.weaponVariant = 0;
 
     if (startingWeapon === WeaponType.LASER) state.player.color = '#3b82f6';
     else if (startingWeapon === WeaponType.PLASMA) state.player.color = '#c084fc';
@@ -708,6 +713,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     if (gameState !== GameState.PLAYING) return;
 
     state.frame++;
+    if (player.hyperModeTimer > 0) player.hyperModeTimer--;
     
     if (bgmSequencer && bgmSequencer.currentLevel !== state.level) {
         bgmSequencer.setLevel(state.level);
@@ -715,8 +721,16 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
 
     // Regen Logic
     if (state.frame - player.lastHitFrame > REGEN_DELAY_FRAMES && player.hp < player.maxHp && player.hp > 0) {
-        if (state.frame % 120 === 0) { 
+        if (state.frame % 60 === 0) {  // Faster regen (1HP per sec)
             player.hp = Math.min(player.maxHp, player.hp + 1);
+            // Regen visual effect
+            state.particles.push({
+                id: 'regen_'+Math.random(),
+                pos: { x: player.pos.x + (Math.random()-0.5)*40, y: player.pos.y + (Math.random()-0.5)*40 },
+                vel: { x: 0, y: -1 },
+                life: 0.5, maxLife: 0.5, scale: 3, color: '#4ade80', markedForDeletion: false, type: 'particle',
+                width: 0, height: 0
+            });
         }
     }
 
@@ -777,19 +791,21 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     player.pos.y = Math.max(halfH, Math.min(CANVAS_HEIGHT - halfH, player.pos.y));
 
     // Shooting
-    if (state.frame % 4 === 0) { 
+    const fireRate = player.hyperModeTimer > 0 ? 2 : 4;
+    if (state.frame % fireRate === 0) { 
       const pX = player.pos.x;
       const pY = player.pos.y - 20;
+      const variant = player.weaponVariant * 0.05;
       
       if (player.weaponType === WeaponType.VULCAN) {
         playSound('shoot');
         const isGatling = player.weaponLevel >= 8 && state.frame % 2 === 0;
-        spawnBullet(state, 'player', pX - 8, pY, -Math.PI/2, BULLET_SPEED_PLAYER);
-        spawnBullet(state, 'player', pX + 8, pY, -Math.PI/2, BULLET_SPEED_PLAYER);
+        spawnBullet(state, 'player', pX - 8, pY, -Math.PI/2 + variant, BULLET_SPEED_PLAYER);
+        spawnBullet(state, 'player', pX + 8, pY, -Math.PI/2 - variant, BULLET_SPEED_PLAYER);
         if (isGatling) spawnBullet(state, 'player', pX, pY - 10, -Math.PI/2, BULLET_SPEED_PLAYER * 1.2);
         if (player.weaponLevel >= 2) {
-           spawnBullet(state, 'player', pX - 18, pY + 5, -Math.PI/2 - 0.1, BULLET_SPEED_PLAYER);
-           spawnBullet(state, 'player', pX + 18, pY + 5, -Math.PI/2 + 0.1, BULLET_SPEED_PLAYER);
+           spawnBullet(state, 'player', pX - 18, pY + 5, -Math.PI/2 - 0.1 - variant, BULLET_SPEED_PLAYER);
+           spawnBullet(state, 'player', pX + 18, pY + 5, -Math.PI/2 + 0.1 + variant, BULLET_SPEED_PLAYER);
         }
         if (player.weaponLevel >= 3) {
            spawnBullet(state, 'player', pX - 28, pY + 10, -Math.PI/2 - 0.25, BULLET_SPEED_PLAYER);
@@ -803,7 +819,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
              spawnBullet(state, 'player', pX, pY + 40, Math.PI/2, BULLET_SPEED_PLAYER * 0.8, 'normal', 0.8);
         }
         if (player.weaponLevel >= 6 && state.frame % 20 === 0) {
-             for(let i=0; i<8; i++) spawnBullet(state, 'player', pX, pY, Math.PI*2/8 * i, BULLET_SPEED_PLAYER * 0.7, 'normal', 0.4);
+             for(let i=0; i<8; i++) spawnBullet(state, 'player', pX, pY, Math.PI*2/8 * i + variant, BULLET_SPEED_PLAYER * 0.7, 'normal', 0.4);
         }
       } else if (player.weaponType === WeaponType.LASER) {
         playSound('laser');
@@ -811,8 +827,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         const beamScale = player.weaponLevel >= 8 ? 2.5 : 1.0; 
         spawnBullet(state, 'player', pX, pY - 10, -Math.PI/2, speed, 'beam', 1.0 * beamScale);
         if (player.weaponLevel >= 2) {
-            spawnBullet(state, 'player', pX - 14, pY + 10, -Math.PI/2, speed, 'beam', 0.7);
-            spawnBullet(state, 'player', pX + 14, pY + 10, -Math.PI/2, speed, 'beam', 0.7);
+            spawnBullet(state, 'player', pX - 14, pY + 10, -Math.PI/2 - variant*0.5, speed, 'beam', 0.7);
+            spawnBullet(state, 'player', pX + 14, pY + 10, -Math.PI/2 + variant*0.5, speed, 'beam', 0.7);
         }
         if (player.weaponLevel >= 3) {
             spawnBullet(state, 'player', pX - 20, pY + 15, -Math.PI/2 - 0.15, speed, 'beam', 0.4);
@@ -1011,12 +1027,21 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                 else if (p.type === 'BOMB') player.bombs++;
                 else if (p.type === 'P_UPGRADE') player.weaponLevel = Math.min(player.weaponLevel + 1, MAX_WEAPON_LEVEL);
                 else {
-                    if ((p.type === 'P_RED' && player.weaponType !== WeaponType.VULCAN) ||
-                        (p.type === 'P_BLUE' && player.weaponType !== WeaponType.LASER) ||
-                        (p.type === 'P_PURPLE' && player.weaponType !== WeaponType.PLASMA)) {
-                            player.weaponType = p.type === 'P_RED' ? WeaponType.VULCAN : p.type === 'P_BLUE' ? WeaponType.LASER : WeaponType.PLASMA;
+                    const isSameWeaponType = (p.type === 'P_RED' && player.weaponType === WeaponType.VULCAN) ||
+                                             (p.type === 'P_BLUE' && player.weaponType === WeaponType.LASER) ||
+                                             (p.type === 'P_PURPLE' && player.weaponType === WeaponType.PLASMA);
+                    
+                    if (!isSameWeaponType) {
+                        player.weaponType = p.type === 'P_RED' ? WeaponType.VULCAN : p.type === 'P_BLUE' ? WeaponType.LASER : WeaponType.PLASMA;
                     } else {
-                        player.weaponLevel = Math.min(player.weaponLevel + 1, MAX_WEAPON_LEVEL);
+                        if (player.weaponLevel >= MAX_WEAPON_LEVEL) {
+                            player.hyperModeTimer = 600; 
+                            playSound('powerup');
+                        } else {
+                            const levels = Math.random() < 0.2 ? 2 : 1;
+                            player.weaponLevel = Math.min(player.weaponLevel + levels, MAX_WEAPON_LEVEL);
+                        }
+                        player.weaponVariant = (player.weaponVariant + 1) % 3;
                     }
                 }
             }
@@ -1219,6 +1244,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.save(); ctx.translate(player.pos.x, player.pos.y);
         ctx.fillStyle = player.color;
         
+        // HYPER MODE AURA
+        if (player.hyperModeTimer > 0) {
+             ctx.shadowBlur = 20 + Math.sin(state.frame*0.5)*10;
+             ctx.shadowColor = '#fbbf24';
+             ctx.strokeStyle = `rgba(251, 191, 36, ${0.5 + Math.sin(state.frame*0.5)*0.5})`;
+             ctx.lineWidth = 4;
+             ctx.beginPath(); ctx.arc(0,0, 45, 0, Math.PI*2); ctx.stroke();
+        }
+
         ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.beginPath(); ctx.ellipse(0, 40, 20, 10, 0, 0, Math.PI*2); ctx.fill();
 
         ctx.fillStyle = player.color;
@@ -1246,6 +1280,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         if (state.frame - player.lastHitFrame > REGEN_DELAY_FRAMES && player.hp < player.maxHp) {
             ctx.strokeStyle = '#22c55e'; ctx.lineWidth = 2; ctx.globalAlpha = 0.5 + Math.sin(state.frame*0.2)*0.3;
             ctx.beginPath(); ctx.arc(0, 0, 35, 0, Math.PI*2); ctx.stroke();
+            // Green cross
+            ctx.fillStyle = '#4ade80';
+            if (state.frame % 60 < 30) {
+                ctx.fillRect(-5, -20, 10, 40);
+                ctx.fillRect(-20, -5, 40, 10);
+            }
         }
         ctx.restore();
     }
@@ -1333,7 +1373,10 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
   useEffect(() => { requestRef.current = requestAnimationFrame(loop); return () => cancelAnimationFrame(requestRef.current); }, [gameState]);
 
   useEffect(() => {
-     if (gameState === GameState.PLAYING && stateRef.current.frame === 0) resetGame();
+     // FIXED: Removed '&& stateRef.current.frame === 0' to ensure reset happens on restart
+     if (gameState === GameState.PLAYING) {
+         resetGame();
+     }
   }, [gameState, startingWeapon]);
 
   return (
