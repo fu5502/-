@@ -568,6 +568,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
            markedForDeletion: false,
            type: 'shockwave'
        });
+       
+       // Debris
+       createDebris(state, x, y, count, color);
     }
 
     for (let i = 0; i < count; i++) {
@@ -586,23 +589,49 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
       });
     }
   };
+  
+  const createDebris = (state: any, x: number, y: number, count: number, color: string) => {
+      for (let i = 0; i < count / 2; i++) {
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 8 + 2;
+          state.particles.push({
+            id: 'debris_'+Math.random(),
+            pos: { x, y },
+            vel: { x: Math.cos(angle) * speed, y: Math.sin(angle) * speed },
+            life: Math.random() * 1.0 + 0.5,
+            maxLife: 1.5,
+            scale: Math.random() * 5 + 3, // Size of debris
+            color: color,
+            markedForDeletion: false,
+            type: 'particle',
+            subtype: 'debris', // Identify as rectangular debris
+            rotation: Math.random() * Math.PI,
+            rotationSpeed: (Math.random() - 0.5) * 0.5
+          });
+      }
+  };
 
   const spawnPowerUp = (state: any, x: number, y: number) => {
-    if (Math.random() > 0.20) return; // Reduced spawn rate (was 0.35)
+    if (Math.random() > 0.20) return; // 20% global drop rate
     const r = Math.random();
-    let type: PowerUp['type'] = 'P_RED';
+    let type: PowerUp['type'] = 'SCORE_SILVER';
     
-    // PowerUp Distribution
-    if (r < 0.15) type = 'P_RED';
-    else if (r < 0.30) type = 'P_BLUE';
-    else if (r < 0.40) type = 'P_PURPLE';
-    else if (r < 0.55) type = 'P_UPGRADE';
-    else if (r < 0.65) type = 'SCORE_GOLD'; // 10%
-    else if (r < 0.75) type = 'SCORE_SILVER'; // 10%
-    else if (r < 0.77) type = 'HEALTH'; // RARE: 2%
-    else if (r < 0.80) type = 'BOMB'; // RARE: 3%
-    else if (r < 0.82) type = 'INVINCIBILITY'; // VERY RARE: 2%
-    else return; // Nothing
+    // REBALANCED DROP RATES
+    // Common (Score Items) - 45% chance within drops
+    if (r < 0.25) type = 'SCORE_SILVER';
+    else if (r < 0.45) type = 'SCORE_GOLD';
+    
+    // Uncommon (Weapon Switch) - 30% chance within drops
+    else if (r < 0.55) type = 'P_RED';
+    else if (r < 0.65) type = 'P_BLUE';
+    else if (r < 0.75) type = 'P_PURPLE';
+    
+    // Rare (Upgrade & Survival) - 25% chance within drops
+    else if (r < 0.82) type = 'P_UPGRADE'; // ~7% (Rare)
+    else if (r < 0.85) type = 'BOMB';      // ~3%
+    else if (r < 0.87) type = 'HEALTH';    // ~2%
+    else if (r < 0.89) type = 'INVINCIBILITY'; // ~2%
+    else return; // Drop nothing
 
     state.powerUps.push({
       id: Math.random().toString(),
@@ -730,6 +759,21 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     }
 
     // --- Background Updates ---
+    // Parallax Stars
+    state.stars.forEach((star, i) => {
+        // 3 Layers of speed based on size/brightness
+        let speedMult = 1;
+        if (i < 40) speedMult = 0.5; // Distant
+        else if (i < 80) speedMult = 1.0; // Mid
+        else speedMult = 2.0; // Close
+        
+        star.y += star.speed * speedMult;
+        if (star.y > CANVAS_HEIGHT) {
+            star.y = 0;
+            star.x = Math.random() * CANVAS_WIDTH;
+        }
+    });
+    
     state.clouds.forEach(c => {
         c.y += c.speed;
         if (c.y > CANVAS_HEIGHT + c.height) {
@@ -881,11 +925,18 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
        } else if (r > 0.55) {
            type = 'interceptor'; hp = 40 * hpMult; scoreVal = 150; width = 32; color = COLORS.ENEMY_INTERCEPTOR; velY = 4.5;
        }
+       
+       // Init Attack Pattern
+       let attackPattern: Enemy['attackPattern'] = 'straight';
+       if (type === 'interceptor') attackPattern = 'aimed';
+       if (type === 'bomber') attackPattern = 'spread';
+
        state.enemies.push({
          id: Math.random().toString(),
          pos: { x, y: -50 },
          vel: { x: 0, y: velY },
-         width, height: width, hp, maxHp: hp, type, color, scoreValue: scoreVal, shootTimer: Math.random()*60, patternOffset: Math.random()*100, markedForDeletion: false
+         width, height: width, hp, maxHp: hp, type, color, scoreValue: scoreVal, shootTimer: Math.random()*60, patternOffset: Math.random()*100, markedForDeletion: false,
+         attackPattern
        });
     }
 
@@ -896,7 +947,8 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             pos: { x: CANVAS_WIDTH / 2, y: -150 },
             vel: { x: 0, y: 1 },
             width: 140, height: 120, hp: 3000 * (1 + (state.level - 1) * 0.5), maxHp: 3000 * (1 + (state.level - 1) * 0.5),
-            type: 'boss', color: COLORS.ENEMY_BOSS, scoreValue: 5000 * state.level, shootTimer: 0, patternOffset: 0, markedForDeletion: false
+            type: 'boss', color: COLORS.ENEMY_BOSS, scoreValue: 5000 * state.level, shootTimer: 0, patternOffset: 0, markedForDeletion: false,
+            attackPattern: 'spiral'
         });
     }
 
@@ -909,23 +961,35 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
               enemy.pos.y += Math.cos(state.frame / 40) * 0.5;
           }
           const rateMult = Math.max(0.5, 1.0 - (state.level * 0.1));
-          if (state.frame % Math.floor(40 * rateMult) === 0) {
-              for(let i=0; i<16; i++) {
-                  spawnBullet(state, 'enemy', enemy.pos.x, enemy.pos.y, (Math.PI * 2 / 16) * i + state.frame/50, 5);
+          
+          // Spiral Pattern / Frenzy
+          const isFrenzy = enemy.hp < enemy.maxHp * 0.3;
+          const fireRate = isFrenzy ? 20 : 40;
+
+          if (state.frame % Math.floor(fireRate * rateMult) === 0) {
+              const count = isFrenzy ? 24 : 16;
+              for(let i=0; i<count; i++) {
+                  spawnBullet(state, 'enemy', enemy.pos.x, enemy.pos.y, (Math.PI * 2 / count) * i + state.frame/30, 5);
               }
               playSound('shoot');
           }
       } else {
           enemy.pos.y += enemy.vel.y;
           enemy.shootTimer++;
-          if (enemy.type === 'interceptor' && enemy.shootTimer > 40) {
-             const angle = Math.atan2(player.pos.y - enemy.pos.y, player.pos.x - enemy.pos.x);
-             spawnBullet(state, 'enemy', enemy.pos.x, enemy.pos.y, angle, BULLET_SPEED_ENEMY * 1.5);
-             enemy.shootTimer = 0;
-          } else if (enemy.type === 'fighter' && enemy.shootTimer > 100) {
-             const angle = Math.atan2(player.pos.y - enemy.pos.y, player.pos.x - enemy.pos.x);
-             spawnBullet(state, 'enemy', enemy.pos.x, enemy.pos.y, angle, BULLET_SPEED_ENEMY);
-             enemy.shootTimer = 0;
+          
+          if (enemy.attackPattern === 'aimed' && enemy.shootTimer > 60) {
+               const angle = Math.atan2(player.pos.y - enemy.pos.y, player.pos.x - enemy.pos.x);
+               spawnBullet(state, 'enemy', enemy.pos.x, enemy.pos.y, angle, BULLET_SPEED_ENEMY * 1.5);
+               enemy.shootTimer = 0;
+          } else if (enemy.attackPattern === 'spread' && enemy.shootTimer > 120) {
+               const angle = Math.atan2(player.pos.y - enemy.pos.y, player.pos.x - enemy.pos.x);
+               spawnBullet(state, 'enemy', enemy.pos.x, enemy.pos.y, angle, BULLET_SPEED_ENEMY);
+               spawnBullet(state, 'enemy', enemy.pos.x, enemy.pos.y, angle - 0.3, BULLET_SPEED_ENEMY);
+               spawnBullet(state, 'enemy', enemy.pos.x, enemy.pos.y, angle + 0.3, BULLET_SPEED_ENEMY);
+               enemy.shootTimer = 0;
+          } else if (enemy.attackPattern === 'straight' && enemy.shootTimer > 100) {
+               spawnBullet(state, 'enemy', enemy.pos.x, enemy.pos.y, Math.PI/2, BULLET_SPEED_ENEMY);
+               enemy.shootTimer = 0;
           }
       }
       if (enemy.pos.y > CANVAS_HEIGHT + 100) enemy.markedForDeletion = true;
@@ -966,10 +1030,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
             p.markedForDeletion = true;
             
             if (p.type === 'SCORE_GOLD') {
-                state.score += 500;
+                const amount = Math.floor(Math.random() * 800) + 200; // 200-1000
+                state.score += amount;
                 playSound('coin');
             } else if (p.type === 'SCORE_SILVER') {
-                state.score += 1000;
+                const amount = Math.floor(Math.random() * 450) + 50; // 50-500
+                state.score += amount;
                 playSound('coin');
             } else if (p.type === 'INVINCIBILITY') {
                 playSound('invincible');
@@ -1003,6 +1069,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         if (p.type === 'shockwave') {
             p.scale += 5;
             p.life -= 0.04;
+        } else if (p.subtype === 'debris') {
+             p.life -= 0.01;
+             p.pos.x += p.vel.x;
+             p.pos.y += p.vel.y;
+             p.rotation! += p.rotationSpeed!;
         } else {
             p.life -= 0.02; // Decay
             p.pos.x += p.vel.x;
@@ -1017,9 +1088,23 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
           if (enemy.markedForDeletion || bullet.markedForDeletion) return;
           if (Math.abs(bullet.pos.x - enemy.pos.x) < enemy.width/2 + bullet.width/2 && 
               Math.abs(bullet.pos.y - enemy.pos.y) < enemy.height/2 + bullet.height/2) {
-                enemy.hp -= bullet.damage;
+                
+                // BOSS Weakpoint: Center mass
+                let damage = bullet.damage;
+                let isCrit = false;
+                if (enemy.type === 'boss') {
+                     const distToCenter = Math.hypot(bullet.pos.x - enemy.pos.x, bullet.pos.y - enemy.pos.y);
+                     if (distToCenter < 20) {
+                         damage *= 1.5;
+                         isCrit = true;
+                     }
+                }
+                
+                enemy.hp -= damage;
+                
                 if (bullet.behavior !== 'beam' && bullet.behavior !== 'mine') bullet.markedForDeletion = true; // Beams penetrate
-                createExplosion(state, bullet.pos.x, bullet.pos.y, 1, bullet.color);
+                createExplosion(state, bullet.pos.x, bullet.pos.y, 1, isCrit ? '#fff' : bullet.color);
+                
                 if (enemy.hp <= 0) {
                     playSound('explode');
                     enemy.markedForDeletion = true;
@@ -1049,9 +1134,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
                player.hp -= 15;
                player.invulnerableTimer = 60;
                player.lastHitFrame = state.frame; // Reset regen
+               
+               // Damage Feedback
                state.cameraShake = 10;
                createExplosion(state, player.pos.x, player.pos.y, 10, COLORS.PLAYER);
                playSound('explode');
+               
                if (player.hp <= 0) setGameState(GameState.GAME_OVER);
            }
        });
@@ -1094,8 +1182,13 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     ctx.fillStyle = '#02040a';
     ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     ctx.save();
-    if (cameraShake > 0) ctx.translate((Math.random()-0.5)*cameraShake, (Math.random()-0.5)*cameraShake);
+    
+    // Camera Shake
+    if (cameraShake > 0) {
+        ctx.translate((Math.random()-0.5)*cameraShake, (Math.random()-0.5)*cameraShake);
+    }
 
+    // --- Background ---
     state.stars.forEach(star => {
         ctx.globalAlpha = Math.random() * 0.3 + star.brightness * 0.5;
         ctx.fillStyle = COLORS.STAR;
@@ -1109,15 +1202,29 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
     });
     ctx.globalAlpha = 1.0;
 
-    // Entities...
+    // --- Entities ---
+    
+    // PowerUps
     state.powerUps.forEach(p => {
         if (p.type === 'SCORE_GOLD' || p.type === 'SCORE_SILVER') {
-             // Render Gold/Silver Bars
-             ctx.save(); ctx.translate(p.pos.x, p.pos.y); ctx.rotate(state.frame * 0.1);
-             ctx.shadowBlur = 15; ctx.shadowColor = p.type === 'SCORE_GOLD' ? COLORS.SCORE_GOLD : COLORS.SCORE_SILVER;
-             ctx.fillStyle = p.type === 'SCORE_GOLD' ? COLORS.SCORE_GOLD : COLORS.SCORE_SILVER;
-             ctx.fillRect(-12, -8, 24, 16);
-             ctx.fillStyle = '#fff'; ctx.globalAlpha = 0.5; ctx.fillRect(-8, -4, 4, 12); ctx.globalAlpha = 1.0; // Shine
+             // Render Coins
+             ctx.save(); ctx.translate(p.pos.x, p.pos.y); 
+             // 3D Spin Effect
+             const scaleX = Math.cos(state.frame * 0.1);
+             ctx.scale(scaleX, 1);
+             
+             const color = p.type === 'SCORE_GOLD' ? COLORS.SCORE_GOLD : COLORS.SCORE_SILVER;
+             ctx.shadowBlur = 15; ctx.shadowColor = color;
+             ctx.fillStyle = color;
+             
+             ctx.beginPath(); ctx.arc(0,0, 12, 0, Math.PI*2); ctx.fill();
+             ctx.strokeStyle = '#fff'; ctx.lineWidth = 2; ctx.stroke();
+             
+             // Symbol
+             ctx.fillStyle = '#fff'; 
+             ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+             ctx.fillText('$', 0, 1);
+             
              ctx.restore();
         } else if (p.type === 'INVINCIBILITY') {
              // Render Shield Item
@@ -1146,6 +1253,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         }
     });
 
+    // Bullets
     state.bullets.forEach(b => {
         ctx.shadowBlur = 8; ctx.shadowColor = b.color; ctx.fillStyle = b.color;
         if (b.owner === 'player') {
@@ -1170,8 +1278,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.shadowBlur = 0;
     });
 
-    // Player (Blink if invulnerable)
-    // Only blink if standard invulnerability (short duration). If Long duration (Item), draw shield.
+    // Player
     const isShieldActive = player.invulnerableTimer > 60; 
     
     if (isShieldActive || Math.floor(player.invulnerableTimer / 4) % 2 === 0) {
@@ -1214,6 +1321,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.restore();
     }
 
+    // Enemies
     state.enemies.forEach(e => {
         ctx.save(); ctx.translate(e.pos.x, e.pos.y);
         ctx.fillStyle = e.color;
@@ -1261,23 +1369,38 @@ const GameCanvas: React.FC<GameCanvasProps> = ({
         ctx.restore();
     });
 
+    // Particles
     state.particles.forEach(p => {
-        ctx.save(); ctx.globalAlpha = Math.max(0, p.life);
+        ctx.save(); ctx.translate(p.pos.x, p.pos.y);
+        ctx.globalAlpha = Math.max(0, p.life);
+        
         if (p.id === 'bomb_flash') { 
             ctx.fillStyle = '#fff'; 
+            ctx.resetTransform(); // Fill screen
             ctx.fillRect(0,0, CANVAS_WIDTH, CANVAS_HEIGHT); 
         } else if (p.type === 'shockwave') {
             ctx.strokeStyle = p.color;
             ctx.lineWidth = 4;
-            ctx.beginPath(); ctx.arc(p.pos.x, p.pos.y, p.scale, 0, Math.PI*2); ctx.stroke();
+            ctx.beginPath(); ctx.arc(0, 0, p.scale, 0, Math.PI*2); ctx.stroke();
+        } else if (p.subtype === 'debris') {
+            // Rotating Debris
+            ctx.rotate(p.rotation || 0);
+            ctx.fillStyle = p.color;
+            ctx.fillRect(-p.scale, -p.scale, p.scale*2, p.scale*2);
         } else { 
             ctx.fillStyle = p.color; 
-            ctx.beginPath(); ctx.arc(p.pos.x, p.pos.y, p.scale, 0, Math.PI*2); ctx.fill(); 
+            ctx.beginPath(); ctx.arc(0, 0, p.scale, 0, Math.PI*2); ctx.fill(); 
         }
         ctx.restore();
     });
     
-    // Level HUD (Localized)
+    // Damage Flash Overlay
+    if (state.player.invulnerableTimer > 55 && !isShieldActive && player.hp > 0) {
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+
+    // Level HUD
     if (state.levelTransitionTimer > 0) {
         ctx.fillStyle = 'rgba(0,0,0,0.5)'; ctx.fillRect(0, CANVAS_HEIGHT/2-50, CANVAS_WIDTH, 100);
         ctx.fillStyle = '#fbbf24'; 

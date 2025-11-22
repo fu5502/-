@@ -1,3 +1,4 @@
+
 export enum GameState {
   MENU,
   PLAYING,
@@ -44,6 +45,7 @@ export interface Enemy extends Entity {
   scoreValue: number;
   shootTimer: number;
   patternOffset: number;
+  attackPattern?: 'straight' | 'aimed' | 'spread' | 'spiral';
 }
 
 export interface Bullet extends Entity {
@@ -58,6 +60,9 @@ export interface Particle extends Entity {
   maxLife: number;
   scale: number;
   type?: 'particle' | 'shockwave';
+  subtype?: 'debris';
+  rotation?: number;
+  rotationSpeed?: number;
 }
 
 export interface PowerUp extends Entity {
