@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Raiden React - Promotional Art Generator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #111;
+            color: white;
+            font-family: 'Orbitron', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+            gap: 40px;
+        }
+        .promo-container {
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+            background: #000;
+        }
+        /* Neon Text Glow */
+        .text-glow-blue { text-shadow: 0 0 10px #3b82f6, 0 0 20px #3b82f6; }
+        .text-glow-red { text-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444; }
+        .text-glow-purple { text-shadow: 0 0 10px #a855f7, 0 0 30px #a855f7; }
+        
+        /* Scanlines */
+        .scanlines {
+            background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.2) 50%, rgba(0,0,0,0.2));
+            background-size: 100% 4px;
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            pointer-events: none;
+            z-index: 20;
+            opacity: 0.6;
+        }
+        .vignette {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: radial-gradient(circle, transparent 40%, black 120%);
+            z-index: 15;
+            pointer-events: none;
+        }
+        
+        /* Grid Floor */
+        .retro-grid {
+            width: 200%;
+            height: 100%;
+            background-image: 
+                linear-gradient(rgba(59, 130, 246, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(59, 130, 246, 0.3) 1px, transparent 1px);
+            background-size: 40px 40px;
+            transform: perspective(300px) rotateX(60deg) translateY(0);
+            position: absolute;
+            bottom: -100px;
+            left: -50%;
+            opacity: 0.4;
+            mask-image: linear-gradient(to top, black, transparent);
+            -webkit-mask-image: linear-gradient(to top, black, transparent);
+        }
+
+        /* Particles for aesthetics */
+        .particle { position: absolute; border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+    <div class="text-center mb-4">
+        <h1 class="text-2xl text-gray-400 mb-2">游戏宣传封面生成器</h1>
+        <p class="text-sm text-gray-500">请直接截图下方区域使用 / Screenshot the areas below</p>
+    </div>
+
+    <!-- 1. Landscape Cover (16:9) - 1280x720 -->
+    <div class="relative group">
+        <div class="absolute -top-8 left-0 text-sm text-gray-400">横版 Landscape (1920x1080 比例)</div>
+        <div class="promo-container w-[960px] h-[540px] flex relative border border-gray-800">
+            <!-- Background -->
+            <div class="absolute inset-0 bg-gradient-to-br from-slate-950 via-indigo-950 to-black"></div>
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] opacity-30"></div>
+            
+            <!-- Dynamic Elements -->
+            <!-- Boss Silhouette Right -->
+            <div class="absolute right-[-50px] top-[-50px] w-[500px] h-[500px] opacity-40 mix-blend-screen">
+                 <svg viewBox="0 0 200 200" class="w-full h-full animate-pulse duration-[4000ms]">
+                    <path d="M100 20 L180 80 L160 180 L40 180 L20 80 Z" fill="#a855f7" filter="blur(40px)" />
+                 </svg>
+            </div>
+
+            <!-- Content Layout -->
+            <div class="absolute inset-0 flex items-center justify-between px-16 z-10">
+                <!-- Left: Title -->
+                <div class="flex flex-col items-start max-w-lg">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="bg-blue-600 text-black px-2 py-0.5 text-xs font-bold font-sans rounded-sm">REACT ENGINE</span>
+                        <span class="bg-red-600 text-white px-2 py-0.5 text-xs font-bold font-sans rounded-sm">ARCADE ACTION</span>
+                    </div>
+                    <h1 class="text-8xl font-black italic tracking-tighter text-white leading-[0.85] text-glow-blue" style="font-family: 'Black Ops One', system-ui;">
+                        RAIDEN<br>
+                        <span class="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-200">REACT</span>
+                    </h1>
+                    <h2 class="text-3xl tracking-[0.6em] text-red-500 font-bold mt-2 text-glow-red pl-1">STORM FIGHTERS</h2>
+                    
+                    <div class="mt-8 flex gap-4">
+                        <div class="px-4 py-2 border border-blue-500/50 bg-blue-500/10 rounded backdrop-blur text-sm text-blue-300 font-mono">
+                            > SYSTEM: ONLINE
+                        </div>
+                        <div class="px-4 py-2 border border-purple-500/50 bg-purple-500/10 rounded backdrop-blur text-sm text-purple-300 font-mono">
+                            > BOSS: WARNING
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right: Visual Composition -->
+                <div class="relative w-[400px] h-[400px]">
+                    <!-- Player Ship -->
+                    <div class="absolute left-0 top-1/2 -translate-y-1/2 w-32 h-32 z-20 transform rotate-90">
+                        <svg viewBox="0 0 100 100" fill="none" stroke="white" stroke-width="2" class="drop-shadow-[0_0_15px_rgba(59,130,246,0.8)]">
+                            <path d="M50 0 L80 80 L50 70 L20 80 Z" fill="#3b82f6" />
+                            <path d="M50 70 L50 90" stroke="#60a5fa" />
+                        </svg>
+                         <!-- Engine Thrust -->
+                        <div class="absolute top-full left-1/2 -translate-x-1/2 w-4 h-20 bg-gradient-to-b from-cyan-400 to-transparent opacity-80 blur-md -mt-6"></div>
+                    </div>
+
+                    <!-- Bullets / Chaos -->
+                    <div class="absolute inset-0 z-10">
+                        <!-- Enemy Bullets -->
+                        <div class="absolute top-[20%] right-[10%] w-4 h-4 bg-red-500 rounded-full shadow-[0_0_10px_#ef4444]"></div>
+                        <div class="absolute top-[30%] right-[30%] w-6 h-6 bg-purple-500 rounded-full shadow-[0_0_15px_#a855f7]"></div>
+                        <div class="absolute top-[60%] right-[20%] w-4 h-4 bg-red-500 rounded-full shadow-[0_0_10px_#ef4444]"></div>
+                        <div class="absolute top-[50%] right-[50%] w-3 h-3 bg-red-500 rounded-full shadow-[0_0_10px_#ef4444]"></div>
+                        
+                        <!-- Beams -->
+                        <div class="absolute top-1/2 left-10 w-[300px] h-2 bg-blue-400 blur-[2px] opacity-80 shadow-[0_0_10px_#3b82f6]"></div>
+                        <div class="absolute top-1/2 left-10 w-[300px] h-0.5 bg-white opacity-90"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="scanlines"></div>
+            <div class="vignette"></div>
+        </div>
+    </div>
+
+    <!-- 2. Portrait Cover (9:16) - 720x1280 -->
+    <div class="relative group">
+        <div class="absolute -top-8 left-0 text-sm text-gray-400">竖版 Portrait (1080x1920 比例)</div>
+        <div class="promo-container w-[450px] h-[800px] flex flex-col relative border border-gray-800">
+             <!-- Background -->
+            <div class="absolute inset-0 bg-slate-950"></div>
+            <div class="retro-grid"></div>
+            
+            <!-- Boss Looming at Top -->
+            <div class="absolute top-[-50px] left-1/2 -translate-x-1/2 w-[500px] h-[300px] bg-gradient-to-b from-purple-900/40 to-transparent blur-3xl"></div>
+            <div class="absolute top-[100px] left-1/2 -translate-x-1/2">
+                <svg width="200" height="100" viewBox="0 0 200 100">
+                    <path d="M0 0 L200 0 L150 100 L50 100 Z" fill="#1e1b4b" stroke="#a855f7" stroke-width="2" />
+                    <circle cx="100" cy="50" r="20" fill="#a855f7" class="animate-pulse">
+                        <animate attributeName="opacity" values="0.5;1;0.5" dur="2s" repeatCount="indefinite" />
+                    </circle>
+                </svg>
+            </div>
+
+            <!-- Main Title Centered High -->
+            <div class="relative z-20 mt-24 text-center">
+                <h1 class="text-6xl font-black italic text-white text-glow-blue leading-none" style="font-family: 'Black Ops One', system-ui;">
+                    RAIDEN
+                </h1>
+                <h1 class="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-blue-300 to-blue-600 leading-none mb-2" style="font-family: 'Black Ops One', system-ui;">
+                    REACT
+                </h1>
+                <div class="inline-block border-t border-b border-red-500 py-1 px-4">
+                    <h2 class="text-xl tracking-[0.5em] text-red-500 font-bold">STORM FIGHTERS</h2>
+                </div>
+            </div>
+
+            <!-- Central Action -->
+            <div class="flex-1 relative overflow-hidden">
+                <!-- Bullet Hell Pattern -->
+                <div class="absolute inset-0 flex justify-center pt-10">
+                    <!-- Generate some svg dots -->
+                    <svg width="100%" height="100%" class="opacity-70">
+                        <pattern id="pattern-bullets" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+                             <circle cx="20" cy="20" r="3" fill="#ef4444" />
+                        </pattern>
+                        <rect x="0" y="0" width="100%" height="100%" fill="url(#pattern-bullets)" />
+                    </svg>
+                </div>
+
+                <!-- Player flying up -->
+                <div class="absolute bottom-20 left-1/2 -translate-x-1/2 z-20">
+                    <div class="relative">
+                        <svg width="80" height="100" viewBox="0 0 100 100" fill="none" stroke="white" stroke-width="2" class="drop-shadow-[0_0_20px_rgba(59,130,246,1)]">
+                            <path d="M50 10 L80 90 L50 80 L20 90 Z" fill="#3b82f6" />
+                            <path d="M50 80 L50 100" stroke="#60a5fa" stroke-width="4" />
+                        </svg>
+                         <!-- Afterburner -->
+                         <div class="absolute top-[80%] left-1/2 -translate-x-1/2 w-6 h-32 bg-gradient-to-b from-cyan-400 to-transparent blur-md"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom Info -->
+            <div class="relative z-20 pb-10 text-center">
+                 <div class="flex justify-center gap-4 mb-4">
+                    <div class="w-12 h-12 rounded border border-red-500 bg-red-900/30 flex items-center justify-center text-red-400 font-bold">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+                    </div>
+                    <div class="w-12 h-12 rounded border border-blue-500 bg-blue-900/30 flex items-center justify-center text-blue-400 font-bold">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                    </div>
+                    <div class="w-12 h-12 rounded border border-purple-500 bg-purple-900/30 flex items-center justify-center text-purple-400 font-bold">
+                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="4"/></svg>
+                    </div>
+                 </div>
+                 <p class="text-gray-500 text-xs tracking-widest uppercase font-mono">Available on Web / Mobile / PC</p>
+            </div>
+
+            <div class="scanlines"></div>
+            <div class="vignette"></div>
+        </div>
+    </div>
+
+</body>
+</html>
